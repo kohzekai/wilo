@@ -5233,6 +5233,7 @@
             }
             
             const tonnageGroups = {};
+            let currentTonnage = null;  // Track current tonnage for merged cells
             
             jsonData.forEach((row, index) => {
                 // Find tonnage column - handles various names and newlines
@@ -5240,13 +5241,24 @@
                 for (let key of Object.keys(row)) {
                     const keyLower = key.toLowerCase().replace(/\s+/g, '');
                     if (keyLower.includes('tonnage') || keyLower === 'tr') {
-                        tonnage = parseFloat(row[key]);
+                        const value = row[key];
+                        if (value !== null && value !== undefined && value !== '') {
+                            tonnage = parseFloat(value);
+                            if (!isNaN(tonnage)) {
+                                currentTonnage = tonnage;  // Update current tonnage
+                            }
+                        }
                         break;
                     }
                 }
                 
+                // If no tonnage found in this row, use the last valid tonnage (for merged cells)
                 if (!tonnage || isNaN(tonnage)) {
-                    console.warn(`Row ${index + 1}: No valid tonnage found`);
+                    tonnage = currentTonnage;
+                }
+                
+                if (!tonnage || isNaN(tonnage)) {
+                    console.warn(`Row ${index + 1}: No valid tonnage found, skipping`);
                     return;
                 }
 
@@ -5300,11 +5312,14 @@
                     remarks: findValue(['Remarks', 'Notes']) || null
                 };
 
-                tonnageGroups[tonnage].pumps.push(pump);
+                // Only add pump if it has a valid model name
+                if (pump.model && pump.model.trim() !== '') {
+                    tonnageGroups[tonnage].pumps.push(pump);
+                }
             });
 
             const tonnagesArray = Object.values(tonnageGroups).sort((a, b) => a.tonnage - b.tonnage);
-            console.log(`Created ${tonnagesArray.length} tonnage groups for ${appType}`);
+            console.log(`${appType}: Created ${tonnagesArray.length} tonnage groups with total ${tonnagesArray.reduce((sum, t) => sum + t.pumps.length, 0)} pumps`);
             
             return tonnagesArray;
         }
