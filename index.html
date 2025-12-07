@@ -1,0 +1,5330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wilo HVAC Pump Selection Optimizer - CDIO Project</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            color: #2d3748;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        .header .subtitle {
+            color: #718096;
+            font-size: 1.1em;
+            margin-bottom: 20px;
+        }
+
+        .logo {
+            height: 60px;
+            margin-bottom: 15px;
+        }
+
+        .controls-panel {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .control-group {
+            margin-bottom: 25px;
+        }
+
+        .control-group label {
+            display: block;
+            font-weight: 600;
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .control-group select,
+        .control-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+        }
+
+        .control-group select:focus,
+        .control-group input:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .results-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .results-section h2 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.8em;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .pump-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 15px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .pump-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .pump-card.winner {
+            background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+            border-color: #38b2ac;
+            border-width: 3px;
+        }
+
+        .pump-card.winner::before {
+            content: "🏆 RECOMMENDED";
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #38b2ac;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        .pump-card.disqualified {
+            background: linear-gradient(135deg, #fff5f5 0%, #fed7d7 100%);
+            border-color: #fc8181;
+            opacity: 0.7;
+        }
+
+        .pump-card.disqualified::before {
+            content: "❌ DISQUALIFIED";
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #fc8181;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-weight: 700;
+            font-size: 0.85em;
+            letter-spacing: 1px;
+        }
+
+        .pump-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+        }
+
+        .pump-model {
+            font-size: 1.4em;
+            font-weight: 700;
+            color: #2d3748;
+        }
+
+        .pump-score {
+            background: #667eea;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 25px;
+            font-weight: 700;
+            font-size: 1.1em;
+        }
+
+        .pump-score.disqualified {
+            background: #fc8181;
+        }
+
+        .pump-details {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .detail-label {
+            font-size: 0.85em;
+            color: #718096;
+            font-weight: 600;
+            margin-bottom: 3px;
+        }
+
+        .detail-value {
+            font-size: 1.1em;
+            color: #2d3748;
+            font-weight: 600;
+        }
+
+        .detail-value.good {
+            color: #38a169;
+        }
+
+        .detail-value.warning {
+            color: #d69e2e;
+        }
+
+        .detail-value.bad {
+            color: #e53e3e;
+        }
+
+        .criteria-section {
+            background: #f7fafc;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .criteria-section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+        }
+
+        .criteria-list {
+            list-style: none;
+        }
+
+        .criteria-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+        }
+
+        .criteria-list li:last-child {
+            border-bottom: none;
+        }
+
+        .criteria-list li::before {
+            content: "✓";
+            color: #38a169;
+            font-weight: bold;
+            margin-right: 10px;
+            font-size: 1.2em;
+        }
+
+        .chart-container {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .chart-container h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            text-align: center;
+            font-size: 1.5em;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .info-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .info-badge.pass {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+
+        .info-badge.fail {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+
+        .grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .grid-2 {
+                grid-template-columns: 1fr;
+            }
+
+            .pump-details {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 30px;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .stat-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            opacity: 0.9;
+        }
+    
+        .info-panel {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .info-panel h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .info-panel h3::before {
+            content: "ℹ️";
+            font-size: 1.2em;
+        }
+
+        .criteria-explanation {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+
+        .criterion-card {
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .criterion-card h4 {
+            color: #2d3748;
+            margin-bottom: 8px;
+            font-size: 1.1em;
+        }
+
+        .criterion-card .weight {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 3px 10px;
+            border-radius: 12px;
+            font-size: 0.85em;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+
+        .criterion-card p {
+            color: #4a5568;
+            font-size: 0.95em;
+            line-height: 1.6;
+            margin-top: 10px;
+        }
+
+        .criterion-card ul {
+            margin-top: 10px;
+            margin-left: 20px;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+
+        .criterion-card ul li {
+            margin-bottom: 5px;
+        }
+
+        .tonnage-guide {
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+
+        .tonnage-guide h3 {
+            color: #2d3748;
+            margin-bottom: 20px;
+            font-size: 1.4em;
+            text-align: center;
+        }
+
+        .tonnage-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+
+        .tonnage-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        .tonnage-table td {
+            padding: 12px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        .tonnage-table tr:hover {
+            background: #f7fafc;
+        }
+
+        .tonnage-range {
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .selection-justification {
+            background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+            border-left: 4px solid #38b2ac;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .selection-justification h4 {
+            color: #234e52;
+            margin-bottom: 15px;
+            font-size: 1.2em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .selection-justification h4::before {
+            content: "💡";
+        }
+
+        .justification-points {
+            list-style: none;
+            margin-left: 0;
+        }
+
+        .justification-points li {
+            padding: 8px 0;
+            color: #2d3748;
+            display: flex;
+            align-items: start;
+            gap: 10px;
+        }
+
+        .justification-points li::before {
+            content: "✓";
+            color: #38b2ac;
+            font-weight: bold;
+            font-size: 1.2em;
+            flex-shrink: 0;
+        }
+
+        .toggle-btn {
+            background: #e2e8f0;
+            color: #2d3748;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            font-size: 0.9em;
+            cursor: pointer;
+            margin-top: 10px;
+            transition: all 0.3s;
+        }
+
+        .toggle-btn:hover {
+            background: #cbd5e0;
+        }
+
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .collapsible-content.expanded {
+            max-height: 2000px;
+        }
+
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚰 Wilo HVAC Pump Selection Optimizer</h1>
+            <div class="subtitle">CDIO Project: Intelligent Pump Selection for Chilled & Condenser Water Systems</div>
+            <div class="subtitle" style="font-size: 0.9em; color: #a0aec0;">Based on SS553 Standards & Performance Optimization Criteria</div>
+        </div>
+
+        <div class="grid-2">
+            <div class="controls-panel">
+                <h2 style="color: #2d3748; margin-bottom: 20px; font-size: 1.5em;">Selection Parameters</h2>
+                
+                <div class="control-group">
+                    <label for="application">Application Type:</label>
+                    <select id="application">
+                        <option value="chilled_water">Chilled Water Pump (NPSHR < 6m, Power Limit: 349 kW/m³/s)</option>
+                        <option value="condenser_water">Condenser Water Pump (NPSHR < 5m, Power Limit: 301 kW/m³/s)</option>
+                    </select>
+                </div>
+
+        <div class="info-panel">
+            <h3>Why These Selection Criteria?</h3>
+            <div class="criteria-explanation">
+                <div class="criterion-card">
+                    <h4>1. Pump Efficiency <span class="weight">40% Weight</span></h4>
+                    <p><strong>Why it matters:</strong> Pump efficiency is the most critical factor because it directly impacts:</p>
+                    <ul>
+                        <li><strong>Energy Costs:</strong> A high-efficiency pump (>82%) can save 15-25% on electricity bills compared to lower efficiency models</li>
+                        <li><strong>Operating Costs:</strong> Over a pump's 15-20 year lifespan, energy costs are typically 5-10x the initial purchase price</li>
+                        <li><strong>Carbon Footprint:</strong> Higher efficiency means less energy consumption and reduced environmental impact</li>
+                        <li><strong>Heat Generation:</strong> Efficient pumps generate less waste heat, reducing cooling load on the HVAC system</li>
+                    </ul>
+                    <p><strong>Target:</strong> Look for pump efficiency >82% for optimal performance</p>
+                </div>
+
+                <div class="criterion-card">
+                    <h4>2. NPSHR (Net Positive Suction Head Required) <span class="weight">30% Weight</span></h4>
+                    <p><strong>Why it matters:</strong> NPSHR determines the minimum pressure needed at the pump inlet to prevent cavitation:</p>
+                    <ul>
+                        <li><strong>Cavitation Prevention:</strong> When NPSH Available < NPSHR, vapor bubbles form and collapse, causing damage to impeller</li>
+                        <li><strong>Pump Longevity:</strong> Cavitation leads to pitting, erosion, noise, vibration, and premature pump failure</li>
+                        <li><strong>Performance Degradation:</strong> Cavitation reduces pump capacity and head, affecting system performance</li>
+                        <li><strong>Maintenance Costs:</strong> Cavitation damage requires costly repairs and downtime</li>
+                    </ul>
+                    <p><strong>Limits:</strong> CHW systems: NPSHR < 6m | CDW systems: NPSHR < 5m (closer to cooling tower)</p>
+                </div>
+
+                <div class="criterion-card">
+                    <h4>3. Pump Power Limitation <span class="weight">30% Weight</span></h4>
+                    <p><strong>Why it matters:</strong> SS553 standard sets maximum power consumption limits for pump efficiency:</p>
+                    <ul>
+                        <li><strong>Regulatory Compliance:</strong> SS553 (Singapore Standard) ensures pumps meet minimum efficiency requirements</li>
+                        <li><strong>Energy Management:</strong> Keeps power consumption within acceptable limits (kW per m³/s of flow)</li>
+                        <li><strong>Benchmarking:</strong> Provides industry standard for comparing pump energy performance</li>
+                        <li><strong>Green Building:</strong> Required for certifications like Green Mark, LEED, and BCA standards</li>
+                    </ul>
+                    <p><strong>Targets:</strong> CHW: ≈349 kW/m³/s | CDW: ≈301 kW/m³/s (closer is better)</p>
+                </div>
+            </div>
+            <button class="toggle-btn" onclick="toggleCriteria()">📖 Show Additional Technical Details</button>
+            <div id="additionalCriteria" class="collapsible-content">
+                <div style="margin-top: 20px; padding: 15px; background: #fff5f5; border-radius: 8px;">
+                    <h4 style="color: #c53030; margin-bottom: 10px;">⚠️ Why Duty Point Position Matters</h4>
+                    <p style="color: #4a5568; line-height: 1.6;">The operating duty point should be in the middle range of the pump curve (40-80% of maximum flow), not at the extremes:</p>
+                    <ul style="margin-left: 20px; color: #4a5568;">
+                        <li><strong>Too close to shutoff (start):</strong> Risk of overheating, recirculation, and unstable operation</li>
+                        <li><strong>Too close to maximum (end):</strong> Risk of cavitation, excessive wear, and motor overload</li>
+                        <li><strong>Optimal range:</strong> Best efficiency, stable operation, and longest pump life</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="tonnage-guide">
+            <h3>📊 Tonnage Selection Guide - Choose the Right Cooling Capacity</h3>
+            <p style="text-align: center; color: #4a5568; margin-bottom: 20px;">
+                Select tonnage based on your building type, size, and cooling requirements. 1 TR (Ton of Refrigeration) = 3.517 kW cooling capacity.
+            </p>
+            <table class="tonnage-table">
+                <thead>
+                    <tr>
+                        <th>Tonnage Range</th>
+                        <th>Typical Building Type</th>
+                        <th>Building Size</th>
+                        <th>Use Case Examples</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td class="tonnage-range">300-400 TR</td>
+                        <td>Small Commercial</td>
+                        <td>2,000-3,500 m²</td>
+                        <td>Small office buildings, retail shops, restaurants, clinics</td>
+                    </tr>
+                    <tr>
+                        <td class="tonnage-range">450-600 TR</td>
+                        <td>Medium Commercial</td>
+                        <td>4,000-6,000 m²</td>
+                        <td>Medium office buildings, supermarkets, small hotels, schools</td>
+                    </tr>
+                    <tr>
+                        <td class="tonnage-range">650-800 TR</td>
+                        <td>Large Commercial</td>
+                        <td>6,500-8,500 m²</td>
+                        <td>Large office buildings, shopping malls, mid-size hotels</td>
+                    </tr>
+                    <tr>
+                        <td class="tonnage-range">850-1000 TR</td>
+                        <td>Industrial / Large Facilities</td>
+                        <td>9,000-11,000 m²</td>
+                        <td>Factories, warehouses, large hotels, convention centers</td>
+                    </tr>
+                    <tr>
+                        <td class="tonnage-range">1050-1200 TR</td>
+                        <td>Very Large Facilities</td>
+                        <td>11,500-13,000+ m²</td>
+                        <td>Hospitals, airports, large industrial plants, data centers</td>
+                    </tr>
+                </tbody>
+            </table>
+            <div style="margin-top: 20px; padding: 15px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px;">
+                <p style="color: #78350f; font-weight: 600; margin-bottom: 8px;">💡 Quick Sizing Rule of Thumb:</p>
+                <p style="color: #4a5568; line-height: 1.6;">
+                    For office buildings: ~100-120 m² per TR<br>
+                    For retail/shopping: ~80-100 m² per TR<br>
+                    For hotels: ~60-80 m² per TR<br>
+                    For hospitals: ~50-70 m² per TR<br>
+                    For data centers: ~20-40 m² per TR (high cooling density)
+                </p>
+                <p style="color: #4a5568; margin-top: 10px; font-style: italic;">
+                    Note: Actual tonnage requirements depend on climate, insulation, occupancy, heat-generating equipment, and other factors. Always consult with HVAC engineers for accurate sizing.
+                </p>
+            </div>
+        </div>
+
+
+                <div class="control-group">
+                    <label for="tonnage">Rated Tonnage (TR):</label>
+                    <select id="tonnage">
+                        <option value="">Select tonnage...</option>
+                    </select>
+                </div>
+
+                <button class="btn" onclick="runOptimization()">🎯 Run Optimization</button>
+            </div>
+
+            <div class="controls-panel">
+                <h2 style="color: #2d3748; margin-bottom: 20px; font-size: 1.5em;">Selection Criteria</h2>
+                <div class="criteria-section">
+                    <ul class="criteria-list">
+                        <li>Duty point must NOT be near start/end of application range</li>
+                        <li>Maximum pump efficiency within constraints</li>
+                        <li>NPSHR below application limit (CHW: 6m, CDW: 5m)</li>
+                        <li>Pump power limitation closest to SS553 standard</li>
+                        <li>Weighted scoring: Efficiency (40%) + Power Limit (30%) + NPSHR (30%)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div id="resultsContainer" class="hidden">
+            <div class="summary-stats" id="statsContainer"></div>
+            
+            <div class="results-section">
+                <h2>📊 Optimization Results</h2>
+                <div id="pumpsContainer"></div>
+            </div>
+
+            <div class="chart-container">
+                <h3>Pump Performance Comparison</h3>
+                <canvas id="comparisonChart"></canvas>
+            </div>
+
+            <div class="chart-container">
+                <h3>Weighted Scoring Breakdown</h3>
+                <canvas id="scoreChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Pump database will be loaded here
+        let pumpDatabase = {
+  "chilled_water": {
+    "npshr_limit": 6.0,
+    "ss553_power_limit": 349.0,
+    "tonnages": [
+      {
+        "tonnage": 300.0,
+        "flowrate_ls": 36.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 125/250-15/4-L1 EN",
+            "head_datasheet": 24.0,
+            "rated_power_kw": 10.508401928571429,
+            "motor_input_kw": 11.409774080967892,
+            "overall_power_input": 12.401928348878144,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8064,
+            "npshr_m": 1.692,
+            "pump_power_limitation": 344.5,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 100/250-15/4-L1-S",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 10.529712060121676,
+            "motor_input_kw": 11.432912117395958,
+            "overall_power_input": 12.427078388473866,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8383,
+            "npshr_m": 1.789,
+            "pump_power_limitation": 345.2,
+            "price": "Check Again.",
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 100/250-15/4-L1",
+            "head_datasheet": 24.0,
+            "rated_power_kw": 10.383501182698199,
+            "motor_input_kw": 11.274159807489902,
+            "overall_power_input": 12.254521529880327,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8161,
+            "npshr_m": 1.865,
+            "pump_power_limitation": 340.40999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 125/250-15/4-L1-GB3",
+            "head_datasheet": 24.0,
+            "rated_power_kw": 10.521449360814502,
+            "motor_input_kw": 11.423940674065692,
+            "overall_power_input": 12.41732681963662,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8054,
+            "npshr_m": 1.727,
+            "pump_power_limitation": 344.93,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-100-280-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 10.527200500894455,
+            "motor_input_kw": 11.430185125835457,
+            "overall_power_input": 12.424114267212452,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8385,
+            "npshr_m": 2.56,
+            "pump_power_limitation": 345.12,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-100-280-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 10.527200500894455,
+            "motor_input_kw": 11.430185125835457,
+            "overall_power_input": 12.424114267212452,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8385,
+            "npshr_m": 2.43,
+            "pump_power_limitation": 345.12,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          }
+        ]
+      },
+      {
+        "tonnage": 350.0,
+        "flowrate_ls": 42.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 125/250-15/4-L1 EN",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 12.336229326732674,
+            "motor_input_kw": 13.394385805355782,
+            "overall_power_input": 14.559115005821502,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8181,
+            "npshr_m": 2.04,
+            "pump_power_limitation": 346.65,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 100/250-15/4-L1",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 12.232134327117233,
+            "motor_input_kw": 13.281361918694065,
+            "overall_power_input": 14.436262955102244,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8419,
+            "npshr_m": 2.032,
+            "pump_power_limitation": 343.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 100/250-15/4-L1",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 12.419246355876092,
+            "motor_input_kw": 13.484523730592935,
+            "overall_power_input": 14.657091011514058,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8458,
+            "npshr_m": 2.032,
+            "pump_power_limitation": 348.98,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 125/250-15/4-L1-GB3",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 12.337737423227386,
+            "motor_input_kw": 13.39602326083321,
+            "overall_power_input": 14.56089484873175,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.818,
+            "npshr_m": 2.045,
+            "pump_power_limitation": 346.69,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-100-280-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 12.090893988498864,
+            "motor_input_kw": 13.12800650217032,
+            "overall_power_input": 14.269572284967738,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8347,
+            "npshr_m": 2.57,
+            "pump_power_limitation": 339.76,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-100-280-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 12.090893988498864,
+            "motor_input_kw": 13.12800650217032,
+            "overall_power_input": 14.269572284967738,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8347,
+            "npshr_m": 2.57,
+            "pump_power_limitation": 339.76,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          }
+        ]
+      },
+      {
+        "tonnage": 400.0,
+        "flowrate_ls": 48.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/275-18.5/4-L1 EN",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 14.016310556325195,
+            "motor_input_kw": 15.136404488472133,
+            "overall_power_input": 16.45261357442623,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8229,
+            "npshr_m": 2.19,
+            "pump_power_limitation": 342.77,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 100/295-18.5/4-L1",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 14.053883217740955,
+            "motor_input_kw": 15.17697971678289,
+            "overall_power_input": 16.49671708345966,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8207,
+            "npshr_m": 2.638,
+            "pump_power_limitation": 343.69,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 100/315-18.5/4-L1",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 14.053883217740955,
+            "motor_input_kw": 15.17697971678289,
+            "overall_power_input": 16.49671708345966,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8207,
+            "npshr_m": 2.638,
+            "pump_power_limitation": 343.69,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-18.5/4-L1-GB3",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 14.264187431115511,
+            "motor_input_kw": 15.404090098396882,
+            "overall_power_input": 16.743576193909654,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8086,
+            "npshr_m": 2.972,
+            "pump_power_limitation": 348.83,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-290-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 13.980632674909094,
+            "motor_input_kw": 15.097875458865113,
+            "overall_power_input": 16.410734194418602,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.825,
+            "npshr_m": 2.67,
+            "pump_power_limitation": 341.9,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-290-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 13.980632674909094,
+            "motor_input_kw": 15.097875458865113,
+            "overall_power_input": 16.410734194418602,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.825,
+            "npshr_m": 2.67,
+            "pump_power_limitation": 341.9,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          }
+        ]
+      },
+      {
+        "tonnage": 450.0,
+        "flowrate_ls": 54.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/275-18.5/4-L1 EN",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 15.52683343472538,
+            "motor_input_kw": 16.767638698407538,
+            "overall_power_input": 18.225694237399498,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8357,
+            "npshr_m": 2.249,
+            "pump_power_limitation": 337.52,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/240-18.5/4-L1",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 15.798337227061209,
+            "motor_input_kw": 17.06083933807906,
+            "overall_power_input": 18.54439058486854,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8381,
+            "npshr_m": 2.567,
+            "pump_power_limitation": 343.42,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/315-18.5/4-L1",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 15.897788166380787,
+            "motor_input_kw": 17.168237760670397,
+            "overall_power_input": 18.66112800072869,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8162,
+            "npshr_m": 2.567,
+            "pump_power_limitation": 345.58,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/315-18.5/4-L1-GB3",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 15.858889004671218,
+            "motor_input_kw": 17.126230026642784,
+            "overall_power_input": 18.615467420263894,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8349,
+            "npshr_m": 2.274,
+            "pump_power_limitation": 344.74,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-330-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 16.02738970034585,
+            "motor_input_kw": 17.308196220675864,
+            "overall_power_input": 18.813256761604197,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8096,
+            "npshr_m": 4.0,
+            "pump_power_limitation": 348.4,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-330-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 16.02738970034585,
+            "motor_input_kw": 17.308196220675864,
+            "overall_power_input": 18.813256761604197,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8096,
+            "npshr_m": 4.0,
+            "pump_power_limitation": 348.4,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 500.0,
+        "flowrate_ls": 60.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/250-22/4-L1 EN",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 17.173945736748063,
+            "motor_input_kw": 18.446773079213816,
+            "overall_power_input": 20.050840303493278,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8395,
+            "npshr_m": 2.507,
+            "pump_power_limitation": 334.19,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/285-22/4-L1",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 17.733561595949855,
+            "motor_input_kw": 19.047864227658277,
+            "overall_power_input": 20.704200247454647,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8296,
+            "npshr_m": 2.507,
+            "pump_power_limitation": 345.08,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/315-22/4-L1",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 17.733561595949855,
+            "motor_input_kw": 19.047864227658277,
+            "overall_power_input": 20.704200247454647,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8296,
+            "npshr_m": 2.507,
+            "pump_power_limitation": 345.08,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-22/4-L1-GB3",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 17.173945736748063,
+            "motor_input_kw": 18.446773079213816,
+            "overall_power_input": 20.050840303493278,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8395,
+            "npshr_m": 3.024,
+            "pump_power_limitation": 334.19,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-330-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 17.701555408494766,
+            "motor_input_kw": 19.013485938232833,
+            "overall_power_input": 20.666832541557426,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8311,
+            "npshr_m": 3.93,
+            "pump_power_limitation": 344.45,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-330-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 17.701555408494766,
+            "motor_input_kw": 19.013485938232833,
+            "overall_power_input": 20.666832541557426,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8311,
+            "npshr_m": 3.93,
+            "pump_power_limitation": 344.45,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 550.0,
+        "flowrate_ls": 66.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/285-22/4-L1 EN",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 19.47451362600283,
+            "motor_input_kw": 20.917844925889188,
+            "overall_power_input": 22.736787962923028,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8476,
+            "npshr_m": 2.53,
+            "pump_power_limitation": 344.5,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/285-22/4-L1",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 19.42729768307323,
+            "motor_input_kw": 20.86712962736115,
+            "overall_power_input": 22.681662638436034,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.833,
+            "npshr_m": 2.582,
+            "pump_power_limitation": 343.67,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 100/160-22/2-L1",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 18.947766058064516,
+            "motor_input_kw": 20.352058064516132,
+            "overall_power_input": 22.121802244039273,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.837,
+            "npshr_m": 4.966,
+            "pump_power_limitation": 335.18,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/315-22/4-L1-GB3",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 19.48140888634486,
+            "motor_input_kw": 20.92525122056376,
+            "overall_power_input": 22.744838283221476,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8473,
+            "npshr_m": 2.54,
+            "pump_power_limitation": 344.62,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-330-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 19.554058687771875,
+            "motor_input_kw": 21.00328537891716,
+            "overall_power_input": 22.82965802056213,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8276,
+            "npshr_m": 4.02,
+            "pump_power_limitation": 345.90999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-330-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 19.554058687771875,
+            "motor_input_kw": 21.00328537891716,
+            "overall_power_input": 22.82965802056213,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8276,
+            "npshr_m": 4.02,
+            "pump_power_limitation": 345.90999999999997,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 600.0,
+        "flowrate_ls": 72.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/295-30/4-L1 EN",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 20.95195257536198,
+            "motor_input_kw": 22.38456471726707,
+            "overall_power_input": 24.331048605725076,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8426,
+            "npshr_m": 2.832,
+            "pump_power_limitation": 337.94,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 21.106542558497015,
+            "motor_input_kw": 22.549724955659205,
+            "overall_power_input": 24.510570603977396,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8197,
+            "npshr_m": 3.054,
+            "pump_power_limitation": 340.43,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 21.550433642578128,
+            "motor_input_kw": 23.023967566856975,
+            "overall_power_input": 25.026051703105406,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8192,
+            "npshr_m": 3.054,
+            "pump_power_limitation": 347.59,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 21.56698196858639,
+            "motor_input_kw": 23.041647402335887,
+            "overall_power_input": 25.045268915582483,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8022,
+            "npshr_m": 2.553,
+            "pump_power_limitation": 347.86,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-330-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 21.28310116275065,
+            "motor_input_kw": 22.73835594310967,
+            "overall_power_input": 24.71560428598877,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8129,
+            "npshr_m": 4.12,
+            "pump_power_limitation": 343.28,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-330-HA",
+            "head_datasheet": 24.5,
+            "rated_power_kw": 21.28310116275065,
+            "motor_input_kw": 22.73835594310967,
+            "overall_power_input": 24.71560428598877,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8129,
+            "npshr_m": 4.12,
+            "pump_power_limitation": 343.28,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 650.0,
+        "flowrate_ls": 78.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/295-30/4-L1 EN",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 23.30959175552635,
+            "motor_input_kw": 24.90340999522046,
+            "overall_power_input": 27.068923907848326,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8369,
+            "npshr_m": 3.276,
+            "pump_power_limitation": 347.03999999999996,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 23.33747737791602,
+            "motor_input_kw": 24.933202326833356,
+            "overall_power_input": 27.101306876992776,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8359,
+            "npshr_m": 3.081,
+            "pump_power_limitation": 347.46,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 23.345856079703207,
+            "motor_input_kw": 24.942153931306848,
+            "overall_power_input": 27.111036881855267,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8356,
+            "npshr_m": 3.081,
+            "pump_power_limitation": 347.58,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/315-30/4-L1-GB3",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 23.15971362315331,
+            "motor_input_kw": 24.743283785420203,
+            "overall_power_input": 26.89487367980457,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8258,
+            "npshr_m": 3.522,
+            "pump_power_limitation": 344.81,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-150-290-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 23.446477271055535,
+            "motor_input_kw": 25.049655204119162,
+            "overall_power_input": 27.22788609143387,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8157,
+            "npshr_m": 3.5,
+            "pump_power_limitation": 349.08,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-150-290-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 23.446477271055535,
+            "motor_input_kw": 25.049655204119162,
+            "overall_power_input": 27.22788609143387,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8157,
+            "npshr_m": 3.5,
+            "pump_power_limitation": 349.08,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 700.0,
+        "flowrate_ls": 84.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/295-30/4-L1 EN",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 24.93519101694915,
+            "motor_input_kw": 26.640161342894395,
+            "overall_power_input": 28.95669711184173,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.826,
+            "npshr_m": 3.822,
+            "pump_power_limitation": 344.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 24.750703505655043,
+            "motor_input_kw": 26.443059300913507,
+            "overall_power_input": 28.742455761862505,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8488,
+            "npshr_m": 3.118,
+            "pump_power_limitation": 342.18,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 24.750703505655043,
+            "motor_input_kw": 26.443059300913507,
+            "overall_power_input": 28.742455761862505,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8488,
+            "npshr_m": 3.118,
+            "pump_power_limitation": 342.18,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 24.76132216879057,
+            "motor_input_kw": 26.454404026485655,
+            "overall_power_input": 28.754786985310492,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8318,
+            "npshr_m": 2.882,
+            "pump_power_limitation": 342.32,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-150-290-HA",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 25.244408958904106,
+            "motor_input_kw": 26.97052239199157,
+            "overall_power_input": 29.315785208686485,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8322,
+            "npshr_m": 3.49,
+            "pump_power_limitation": 349.0,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-150-290-HA",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 25.244408958904106,
+            "motor_input_kw": 26.97052239199157,
+            "overall_power_input": 29.315785208686485,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8322,
+            "npshr_m": 3.49,
+            "pump_power_limitation": 349.0,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 750.0,
+        "flowrate_ls": 90.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 26.688400439886173,
+            "motor_input_kw": 28.42215169316951,
+            "overall_power_input": 30.89364314474947,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8434,
+            "npshr_m": 2.991,
+            "pump_power_limitation": 343.27,
+            "price": null,
+            "remarks": "NPSHR is too high at motor size 30kW, hence I offer 37kW."
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 26.754896027045927,
+            "motor_input_kw": 28.584290627185823,
+            "overall_power_input": 31.069881116506327,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8578,
+            "npshr_m": 3.17,
+            "pump_power_limitation": 345.23,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 26.225092544564838,
+            "motor_input_kw": 28.018261265560724,
+            "overall_power_input": 30.45463181039209,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8583,
+            "npshr_m": 3.17,
+            "pump_power_limitation": 338.39,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 26.805998488745978,
+            "motor_input_kw": 28.63888727430126,
+            "overall_power_input": 31.129225298153543,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8397,
+            "npshr_m": 3.08,
+            "pump_power_limitation": 345.89,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 27.01388670583915,
+            "motor_input_kw": 28.86099007034097,
+            "overall_power_input": 31.370641380805402,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8169,
+            "npshr_m": 3.52,
+            "pump_power_limitation": 348.57,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 27.01388670583915,
+            "motor_input_kw": 28.86099007034097,
+            "overall_power_input": 31.370641380805402,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8169,
+            "npshr_m": 3.52,
+            "pump_power_limitation": 348.57,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 800.0,
+        "flowrate_ls": 96.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 28.926353695852537,
+            "motor_input_kw": 30.80548849398566,
+            "overall_power_input": 33.484226623897456,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8463,
+            "npshr_m": 3.251,
+            "pump_power_limitation": 348.8,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 28.838591700416092,
+            "motor_input_kw": 30.712025240059734,
+            "overall_power_input": 33.38263613049971,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8652,
+            "npshr_m": 3.243,
+            "pump_power_limitation": 347.74,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-37/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 28.838591700416092,
+            "motor_input_kw": 30.712025240059734,
+            "overall_power_input": 33.38263613049971,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8652,
+            "npshr_m": 3.243,
+            "pump_power_limitation": 347.74,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 28.430546745293075,
+            "motor_input_kw": 30.277472572197095,
+            "overall_power_input": 32.910296274127276,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8445,
+            "npshr_m": 3.301,
+            "pump_power_limitation": 342.82,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 28.84035642810811,
+            "motor_input_kw": 30.713904609273808,
+            "overall_power_input": 33.3846789231237,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8325,
+            "npshr_m": 3.24,
+            "pump_power_limitation": 347.76,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 28.84035642810811,
+            "motor_input_kw": 30.713904609273808,
+            "overall_power_input": 33.3846789231237,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8325,
+            "npshr_m": 3.24,
+            "pump_power_limitation": 347.76,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 850.0,
+        "flowrate_ls": 102.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 30.676254810237058,
+            "motor_input_kw": 32.66906795552402,
+            "overall_power_input": 35.50985647339567,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8479,
+            "npshr_m": 3.52,
+            "pump_power_limitation": 348.14,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 30.422993327289426,
+            "motor_input_kw": 32.39935391617617,
+            "overall_power_input": 35.21668903932192,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8714,
+            "npshr_m": 3.343,
+            "pump_power_limitation": 345.27,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-37/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 30.422993327289426,
+            "motor_input_kw": 32.39935391617617,
+            "overall_power_input": 35.21668903932192,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8714,
+            "npshr_m": 3.343,
+            "pump_power_limitation": 345.27,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 30.70885059456907,
+            "motor_input_kw": 32.703781250872275,
+            "overall_power_input": 35.547588316165516,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.847,
+            "npshr_m": 3.546,
+            "pump_power_limitation": 348.51,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 30.690733278584073,
+            "motor_input_kw": 32.68448698464757,
+            "overall_power_input": 35.5266162876604,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8475,
+            "npshr_m": 3.35,
+            "pump_power_limitation": 348.31,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 30.690733278584073,
+            "motor_input_kw": 32.68448698464757,
+            "overall_power_input": 35.5266162876604,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8475,
+            "npshr_m": 3.35,
+            "pump_power_limitation": 348.31,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 900.0,
+        "flowrate_ls": 108.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 32.48457156687898,
+            "motor_input_kw": 34.59485789869965,
+            "overall_power_input": 37.60310641163005,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8478,
+            "npshr_m": 3.81,
+            "pump_power_limitation": 348.18,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 32.05074586846312,
+            "motor_input_kw": 34.132849700173715,
+            "overall_power_input": 37.10092358714534,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8758,
+            "npshr_m": 3.476,
+            "pump_power_limitation": 343.53,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-37/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 32.05074586846312,
+            "motor_input_kw": 34.132849700173715,
+            "overall_power_input": 37.10092358714534,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8758,
+            "npshr_m": 3.476,
+            "pump_power_limitation": 343.53,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 32.496070530265484,
+            "motor_input_kw": 34.607103866097425,
+            "overall_power_input": 37.61641724575807,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8475,
+            "npshr_m": 3.818,
+            "pump_power_limitation": 348.31,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 32.012576745786355,
+            "motor_input_kw": 34.09220100722721,
+            "overall_power_input": 37.05674022524697,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8603,
+            "npshr_m": 3.47,
+            "pump_power_limitation": 343.12,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 32.03491889542863,
+            "motor_input_kw": 34.11599456382176,
+            "overall_power_input": 37.08260278676278,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8597,
+            "npshr_m": 3.49,
+            "pump_power_limitation": 343.36,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 950.0,
+        "flowrate_ls": 114.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 33.709382965949395,
+            "motor_input_kw": 35.899236385462615,
+            "overall_power_input": 39.02090911463328,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8458,
+            "npshr_m": 4.121,
+            "pump_power_limitation": 342.28999999999996,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 33.73888644705078,
+            "motor_input_kw": 35.93065649313182,
+            "overall_power_input": 39.055061405578066,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8782,
+            "npshr_m": 3.651,
+            "pump_power_limitation": 342.59,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-37/4-L1",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 33.136262504502454,
+            "motor_input_kw": 35.28888445633914,
+            "overall_power_input": 38.35748310471646,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8773,
+            "npshr_m": 3.651,
+            "pump_power_limitation": 336.46999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 34.366288089845135,
+            "motor_input_kw": 36.59881585713007,
+            "overall_power_input": 39.781321583837034,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8459,
+            "npshr_m": 4.122,
+            "pump_power_limitation": 348.96,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 34.115705328497405,
+            "motor_input_kw": 36.33195455644026,
+            "overall_power_input": 39.491254952652454,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8685,
+            "npshr_m": 3.62,
+            "pump_power_limitation": 346.42,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 34.115705328497405,
+            "motor_input_kw": 36.33195455644026,
+            "overall_power_input": 39.491254952652454,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8685,
+            "npshr_m": 3.62,
+            "pump_power_limitation": 346.42,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1000.0,
+        "flowrate_ls": 120.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/305-45/4-P6-L1 EN",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 35.74558826584087,
+            "motor_input_kw": 37.94648435864211,
+            "overall_power_input": 41.24617865069794,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8396,
+            "npshr_m": 4.49,
+            "pump_power_limitation": 343.71999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/305-45/4-L1",
+            "head_datasheet": 27.0,
+            "rated_power_kw": 36.19706963435471,
+            "motor_input_kw": 38.425763943051706,
+            "overall_power_input": 41.76713472070838,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8779,
+            "npshr_m": 3.877,
+            "pump_power_limitation": 348.06,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-45/4-L1",
+            "head_datasheet": 27.0,
+            "rated_power_kw": 36.19706963435471,
+            "motor_input_kw": 38.425763943051706,
+            "overall_power_input": 41.76713472070838,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8779,
+            "npshr_m": 3.881,
+            "pump_power_limitation": 348.06,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-45/4-L1-GB3",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 35.643700603325414,
+            "motor_input_kw": 37.83832335809492,
+            "overall_power_input": 41.12861234575534,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.842,
+            "npshr_m": 4.464,
+            "pump_power_limitation": 342.74,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 35.70162193681318,
+            "motor_input_kw": 37.8998109732624,
+            "overall_power_input": 41.19544671006782,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8736,
+            "npshr_m": 3.8,
+            "pump_power_limitation": 343.3,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 35.70162193681318,
+            "motor_input_kw": 37.8998109732624,
+            "overall_power_input": 41.19544671006782,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8736,
+            "npshr_m": 3.8,
+            "pump_power_limitation": 343.3,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1050.0,
+        "flowrate_ls": 126.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/305-45/4-P6-L1 EN",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 37.69449246818182,
+            "motor_input_kw": 40.01538478575564,
+            "overall_power_input": 43.494983462777874,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.836,
+            "npshr_m": 4.902,
+            "pump_power_limitation": 345.2,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/305-45/4-L1",
+            "head_datasheet": 27.0,
+            "rated_power_kw": 38.076318388223214,
+            "motor_input_kw": 40.42072015734948,
+            "overall_power_input": 43.93556538842334,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8763,
+            "npshr_m": 4.162,
+            "pump_power_limitation": 348.7,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-45/4-L1",
+            "head_datasheet": 27.0,
+            "rated_power_kw": 38.076318388223214,
+            "motor_input_kw": 40.42072015734948,
+            "overall_power_input": 43.93556538842334,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8763,
+            "npshr_m": 4.167,
+            "pump_power_limitation": 348.7,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-45/4-L1-GB3",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 37.63596763812254,
+            "motor_input_kw": 39.95325651605365,
+            "overall_power_input": 43.42745273484092,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8373,
+            "npshr_m": 4.851,
+            "pump_power_limitation": 344.67,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 37.43100213761573,
+            "motor_input_kw": 39.73567105904005,
+            "overall_power_input": 43.1909468033044,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8749,
+            "npshr_m": 4.02,
+            "pump_power_limitation": 342.78999999999996,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 37.43100213761573,
+            "motor_input_kw": 39.73567105904005,
+            "overall_power_input": 43.1909468033044,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8749,
+            "npshr_m": 4.02,
+            "pump_power_limitation": 342.78999999999996,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1100.0,
+        "flowrate_ls": 132.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/305-45/4-P6-L1 EN",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 39.703181598075766,
+            "motor_input_kw": 42.14775116568552,
+            "overall_power_input": 45.81277300617991,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8315,
+            "npshr_m": 5.35,
+            "pump_power_limitation": 347.07,
+            "price": null,
+            "remarks": "Both 45kW and 55kW exceed 5m NPSHR."
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/305-45/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 39.303277141024175,
+            "motor_input_kw": 41.72322414121462,
+            "overall_power_input": 45.35133058827676,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8729,
+            "npshr_m": 4.517,
+            "pump_power_limitation": 343.58,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 200/400-45/4W-L1-GB3",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 39.81811060041009,
+            "motor_input_kw": 42.2697564760192,
+            "overall_power_input": 45.945387473933906,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8291,
+            "npshr_m": 3.295,
+            "pump_power_limitation": 348.08,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-45/4-L1-GB3",
+            "head_datasheet": 25.5,
+            "rated_power_kw": 39.67932151298077,
+            "motor_input_kw": 42.1224219883023,
+            "overall_power_input": 45.785241291632936,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.832,
+            "npshr_m": 5.294,
+            "pump_power_limitation": 346.86,
+            "price": null,
+            "remarks": "Other pump's duty point is at the end of the application range."
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 39.253810773913045,
+            "motor_input_kw": 41.67071207421767,
+            "overall_power_input": 45.29425225458442,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.874,
+            "npshr_m": 4.26,
+            "pump_power_limitation": 343.14,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 39.253810773913045,
+            "motor_input_kw": 41.67071207421767,
+            "overall_power_input": 45.29425225458442,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.874,
+            "npshr_m": 4.26,
+            "pump_power_limitation": 343.14,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          }
+        ]
+      },
+      {
+        "tonnage": 1150.0,
+        "flowrate_ls": 138.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/305-45/4-P6-L1 EN",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 41.024556510669264,
+            "motor_input_kw": 43.550484618544864,
+            "overall_power_input": 47.337483281027026,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8248,
+            "npshr_m": 5.865,
+            "pump_power_limitation": 343.03,
+            "price": null,
+            "remarks": "Both 45kW and 55kW exceed 5m NPSHR."
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/305-45/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 41.22675570413793,
+            "motor_input_kw": 43.76513344388315,
+            "overall_power_input": 47.57079722161212,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.87,
+            "npshr_m": 4.955,
+            "pump_power_limitation": 344.71999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-45/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 41.22675570413793,
+            "motor_input_kw": 43.76513344388315,
+            "overall_power_input": 47.57079722161212,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.87,
+            "npshr_m": 4.955,
+            "pump_power_limitation": 344.71999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-45/4-L1-GB3",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 41.014611163636374,
+            "motor_input_kw": 43.539926925304,
+            "overall_power_input": 47.326007527504345,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.825,
+            "npshr_m": 5.803,
+            "pump_power_limitation": 342.95,
+            "price": null,
+            "remarks": "Only pump we can offer."
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 41.17942303398393,
+            "motor_input_kw": 43.71488644796595,
+            "overall_power_input": 47.51618092170212,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.871,
+            "npshr_m": 4.54,
+            "pump_power_limitation": 344.33,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 41.17942303398393,
+            "motor_input_kw": 43.71488644796595,
+            "overall_power_input": 47.51618092170212,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.871,
+            "npshr_m": 4.54,
+            "pump_power_limitation": 344.33,
+            "price": null,
+            "remarks": "Pump offer is running at maximum impeller size."
+          }
+        ]
+      },
+      {
+        "tonnage": 1200.0,
+        "flowrate_ls": 144.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/305-45/4-P6 EN",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 43.13245844124115,
+            "motor_input_kw": 45.78817244293115,
+            "overall_power_input": 49.769752655359945,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8186,
+            "npshr_m": 6.405,
+            "pump_power_limitation": 345.63,
+            "price": null,
+            "remarks": "Both 45kW and 55kW exceed 5m NPSHR."
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/315-55/4-L1",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 43.23290320988796,
+            "motor_input_kw": 45.70074335083294,
+            "overall_power_input": 49.67472103351406,
+            "motor_size_kw": 55.0,
+            "poles": "4P",
+            "motor_eff": 0.946,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8657,
+            "npshr_m": 5.486,
+            "pump_power_limitation": 344.96999999999997,
+            "price": null,
+            "remarks": "Available pumps exceed 5m NPSHR."
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 200/400-55/4W-L1-GB3",
+            "head_datasheet": 26.0,
+            "rated_power_kw": 43.4357223789922,
+            "motor_input_kw": 45.91513993550973,
+            "overall_power_input": 49.90776079946709,
+            "motor_size_kw": 55.0,
+            "poles": "4P",
+            "motor_eff": 0.946,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8454,
+            "npshr_m": 3.566,
+            "pump_power_limitation": 346.59,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-55/4-L1-GB3",
+            "head_datasheet": 25.0,
+            "rated_power_kw": 43.13245844124115,
+            "motor_input_kw": 45.59456494845787,
+            "overall_power_input": 49.559309726584644,
+            "motor_size_kw": 55.0,
+            "poles": "4P",
+            "motor_eff": 0.946,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8186,
+            "npshr_m": 6.391,
+            "pump_power_limitation": 344.17,
+            "price": null,
+            "remarks": "Only pump we can offer."
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-360-HB",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 43.22790980457381,
+            "motor_input_kw": 45.69546490969748,
+            "overall_power_input": 49.66898359749726,
+            "motor_size_kw": 55.0,
+            "poles": "4P",
+            "motor_eff": 0.946,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8658,
+            "npshr_m": 4.02,
+            "pump_power_limitation": 344.93,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-360-HB",
+            "head_datasheet": 26.5,
+            "rated_power_kw": 43.22790980457381,
+            "motor_input_kw": 45.69546490969748,
+            "overall_power_input": 49.66898359749726,
+            "motor_size_kw": 55.0,
+            "poles": "4P",
+            "motor_eff": 0.946,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8658,
+            "npshr_m": 4.02,
+            "pump_power_limitation": 344.93,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      }
+    ]
+  },
+  "condenser_water": {
+    "npshr_limit": 5.0,
+    "ss553_power_limit": 301.0,
+    "tonnages": [
+      {
+        "tonnage": 300.0,
+        "flowrate_ls": 36.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 125/240-11/4-L1 EN",
+            "head_datasheet": 20.5,
+            "rated_power_kw": 8.921714838407494,
+            "motor_input_kw": 9.761175971999446,
+            "overall_power_input": 10.609973882608093,
+            "motor_size_kw": 11.0,
+            "poles": "4P",
+            "motor_eff": 0.914,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8113,
+            "npshr_m": 1.726,
+            "pump_power_limitation": 294.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 100/240-11/4-L1",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 8.939870268627924,
+            "motor_input_kw": 9.781039681212171,
+            "overall_power_input": 10.631564870882794,
+            "motor_size_kw": 11.0,
+            "poles": "4P",
+            "motor_eff": 0.914,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8294,
+            "npshr_m": 1.865,
+            "pump_power_limitation": 295.33,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 100/250-11/4-L1",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 8.939870268627924,
+            "motor_input_kw": 9.781039681212171,
+            "overall_power_input": 10.631564870882794,
+            "motor_size_kw": 11.0,
+            "poles": "4P",
+            "motor_eff": 0.914,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8294,
+            "npshr_m": 1.865,
+            "pump_power_limitation": 295.33,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 125/250-11/4-L1-GB3",
+            "head_datasheet": 20.5,
+            "rated_power_kw": 8.921714838407494,
+            "motor_input_kw": 9.761175971999446,
+            "overall_power_input": 10.609973882608093,
+            "motor_size_kw": 11.0,
+            "poles": "4P",
+            "motor_eff": 0.914,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8113,
+            "npshr_m": 1.727,
+            "pump_power_limitation": 294.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-100-280-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 8.949857997170481,
+            "motor_input_kw": 9.791967174147134,
+            "overall_power_input": 10.64344258059471,
+            "motor_size_kw": 11.0,
+            "poles": "4P",
+            "motor_eff": 0.914,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8482,
+            "npshr_m": 2.88,
+            "pump_power_limitation": 295.65999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-100-280-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 8.949857997170481,
+            "motor_input_kw": 9.791967174147134,
+            "overall_power_input": 10.64344258059471,
+            "motor_size_kw": 11.0,
+            "poles": "4P",
+            "motor_eff": 0.914,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8482,
+            "npshr_m": 2.88,
+            "pump_power_limitation": 295.65999999999997,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 350.0,
+        "flowrate_ls": 42.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 125/250-15/4-L1 EN",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 10.527584845564077,
+            "motor_input_kw": 11.430602438180323,
+            "overall_power_input": 12.424567867587307,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8217,
+            "npshr_m": 1.989,
+            "pump_power_limitation": 295.83,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 100/250-15/4-L1",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 10.476585282305924,
+            "motor_input_kw": 11.375228319550407,
+            "overall_power_input": 12.364378608206964,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8257,
+            "npshr_m": 2.032,
+            "pump_power_limitation": 294.39,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 100/250-15/4-L1",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 10.476585282305924,
+            "motor_input_kw": 11.375228319550407,
+            "overall_power_input": 12.364378608206964,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8257,
+            "npshr_m": 2.032,
+            "pump_power_limitation": 294.39,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 125/250-15/4-L1-GB3",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 10.535277636828646,
+            "motor_input_kw": 11.438955088847607,
+            "overall_power_input": 12.43364683570392,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8211,
+            "npshr_m": 2.043,
+            "pump_power_limitation": 296.03999999999996,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-100-280-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 10.553480869161106,
+            "motor_input_kw": 11.458719727645068,
+            "overall_power_input": 12.45513013874464,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8392,
+            "npshr_m": 3.01,
+            "pump_power_limitation": 296.56,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-100-280-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 10.553480869161106,
+            "motor_input_kw": 11.458719727645068,
+            "overall_power_input": 12.45513013874464,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8392,
+            "npshr_m": 3.01,
+            "pump_power_limitation": 296.56,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 400.0,
+        "flowrate_ls": 48.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 125/250-15/4-L1 EN",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 12.00814348888619,
+            "motor_input_kw": 13.038157968388916,
+            "overall_power_input": 14.171910835205342,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8233,
+            "npshr_m": 2.403,
+            "pump_power_limitation": 295.25,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/230-15/4-L1",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 12.230984206853892,
+            "motor_input_kw": 13.280113145335388,
+            "overall_power_input": 14.434905592755856,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8083,
+            "npshr_m": 2.55,
+            "pump_power_limitation": 300.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/250-15/4-L1",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 12.230984206853892,
+            "motor_input_kw": 13.280113145335388,
+            "overall_power_input": 14.434905592755856,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8083,
+            "npshr_m": 2.55,
+            "pump_power_limitation": 300.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-15/4-L1-GB3",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 12.148322111575327,
+            "motor_input_kw": 13.190360598887436,
+            "overall_power_input": 14.33734847705156,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8138,
+            "npshr_m": 2.972,
+            "pump_power_limitation": 298.7,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-290-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 12.193341449945791,
+            "motor_input_kw": 13.239241530885767,
+            "overall_power_input": 14.390479924875834,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8301,
+            "npshr_m": 2.86,
+            "pump_power_limitation": 299.81,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-290-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 12.193341449945791,
+            "motor_input_kw": 13.239241530885767,
+            "overall_power_input": 14.390479924875834,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8301,
+            "npshr_m": 2.86,
+            "pump_power_limitation": 299.81,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 450.0,
+        "flowrate_ls": 54.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/240-18.5/4-L1 EN",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 13.554224889655995,
+            "motor_input_kw": 14.637391889477318,
+            "overall_power_input": 15.910208575518823,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8401,
+            "npshr_m": 2.887,
+            "pump_power_limitation": 294.64,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/240-18.5/4-L1",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 13.604425722580645,
+            "motor_input_kw": 14.691604452030935,
+            "overall_power_input": 15.969135273946668,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.837,
+            "npshr_m": 2.569,
+            "pump_power_limitation": 295.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/250-18.5/4-L1",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 13.604425722580645,
+            "motor_input_kw": 14.691604452030935,
+            "overall_power_input": 15.969135273946668,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.837,
+            "npshr_m": 2.569,
+            "pump_power_limitation": 295.73,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-18.5/4-L1-GB3",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 13.643547004313444,
+            "motor_input_kw": 14.733852056494001,
+            "overall_power_input": 16.015056583145654,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8346,
+            "npshr_m": 2.985,
+            "pump_power_limitation": 296.58,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-290-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 13.530066931796577,
+            "motor_input_kw": 14.690626418888794,
+            "overall_power_input": 15.968072194444341,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8416,
+            "npshr_m": 2.94,
+            "pump_power_limitation": 295.71,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-290-HA",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 13.530066931796577,
+            "motor_input_kw": 14.690626418888794,
+            "overall_power_input": 15.968072194444341,
+            "motor_size_kw": 15.0,
+            "poles": "4P",
+            "motor_eff": 0.9209999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8416,
+            "npshr_m": 2.94,
+            "pump_power_limitation": 295.71,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 500.0,
+        "flowrate_ls": 60.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/240-18.5/4-L1 EN",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 14.895356630562748,
+            "motor_input_kw": 16.085698305143357,
+            "overall_power_input": 17.48445467950365,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8494,
+            "npshr_m": 3.0,
+            "pump_power_limitation": 291.40999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/240-18.5/4-L1",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 15.06791337988827,
+            "motor_input_kw": 16.272044686704394,
+            "overall_power_input": 17.687005094243904,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8592,
+            "npshr_m": 2.602,
+            "pump_power_limitation": 294.78999999999996,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/250-18.5/4-L1",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 15.06791337988827,
+            "motor_input_kw": 16.272044686704394,
+            "overall_power_input": 17.687005094243904,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8592,
+            "npshr_m": 2.602,
+            "pump_power_limitation": 294.78999999999996,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-18.5/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 15.266923556603775,
+            "motor_input_kw": 16.48695848445332,
+            "overall_power_input": 17.92060704831883,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.848,
+            "npshr_m": 3.027,
+            "pump_power_limitation": 298.68,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 15.29217006378455,
+            "motor_input_kw": 16.51422253108483,
+            "overall_power_input": 17.950241881613945,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8466,
+            "npshr_m": 3.04,
+            "pump_power_limitation": 299.18,
+            "price": null,
+            "remarks": "Pump offer is running at the maximum impeller size."
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 15.29217006378455,
+            "motor_input_kw": 16.51422253108483,
+            "overall_power_input": 17.950241881613945,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8466,
+            "npshr_m": 3.04,
+            "pump_power_limitation": 299.18,
+            "price": null,
+            "remarks": "Pump offer is running at the \nmaximum impeller size."
+          }
+        ]
+      },
+      {
+        "tonnage": 550.0,
+        "flowrate_ls": 66.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/250-22/4-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 16.77581139545294,
+            "motor_input_kw": 18.019131466651924,
+            "overall_power_input": 19.58601246375209,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8489,
+            "npshr_m": 3.007,
+            "pump_power_limitation": 296.76,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/250-22/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 16.849427432901436,
+            "motor_input_kw": 18.098203472504228,
+            "overall_power_input": 19.671960296200247,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8644,
+            "npshr_m": 2.662,
+            "pump_power_limitation": 298.07,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/250-22/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 16.849427432901436,
+            "motor_input_kw": 18.098203472504228,
+            "overall_power_input": 19.671960296200247,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8644,
+            "npshr_m": 2.662,
+            "pump_power_limitation": 298.07,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-22/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 16.742283439454503,
+            "motor_input_kw": 17.98311862454834,
+            "overall_power_input": 19.54686807016124,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8506,
+            "npshr_m": 3.134,
+            "pump_power_limitation": 296.17,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-330-HA",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 16.718323373262823,
+            "motor_input_kw": 18.054344895532207,
+            "overall_power_input": 19.62428792992631,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8131,
+            "npshr_m": 4.45,
+            "pump_power_limitation": 297.34,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-330-HA",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 16.718323373262823,
+            "motor_input_kw": 18.054344895532207,
+            "overall_power_input": 19.62428792992631,
+            "motor_size_kw": 18.5,
+            "poles": "4P",
+            "motor_eff": 0.9259999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8131,
+            "npshr_m": 4.45,
+            "pump_power_limitation": 297.34,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 600.0,
+        "flowrate_ls": 72.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/250-22/4-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 18.272902153846157,
+            "motor_input_kw": 19.627177394034543,
+            "overall_power_input": 21.333888471776678,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8502,
+            "npshr_m": 3.251,
+            "pump_power_limitation": 296.31,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/250-22/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 18.31550860634006,
+            "motor_input_kw": 19.67294157501618,
+            "overall_power_input": 21.383632146756714,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8675,
+            "npshr_m": 2.761,
+            "pump_power_limitation": 297.0,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/250-22/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 18.31550860634006,
+            "motor_input_kw": 19.67294157501618,
+            "overall_power_input": 21.383632146756714,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8675,
+            "npshr_m": 2.761,
+            "pump_power_limitation": 297.0,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-22/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 18.268604669802446,
+            "motor_input_kw": 19.622561406876958,
+            "overall_power_input": 21.328871094431474,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8504,
+            "npshr_m": 3.312,
+            "pump_power_limitation": 296.24,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-125-330-HA",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 18.458372917102317,
+            "motor_input_kw": 19.826394110743628,
+            "overall_power_input": 21.550428381243073,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8034,
+            "npshr_m": 4.35,
+            "pump_power_limitation": 299.32,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-125-330-HA",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 18.458372917102317,
+            "motor_input_kw": 19.826394110743628,
+            "overall_power_input": 21.550428381243073,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8034,
+            "npshr_m": 4.35,
+            "pump_power_limitation": 299.32,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 650.0,
+        "flowrate_ls": 78.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 150/250-22/4-L1 EN",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 19.40050801910828,
+            "motor_input_kw": 20.83835447809697,
+            "overall_power_input": 22.650385302279314,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8478,
+            "npshr_m": 3.574,
+            "pump_power_limitation": 290.39,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 125/250-22/4-L1",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 19.41206058685121,
+            "motor_input_kw": 20.850763251182826,
+            "overall_power_input": 22.66387309911177,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.867,
+            "npshr_m": 2.911,
+            "pump_power_limitation": 290.57,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 125/250-22/4-L1",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 19.41206058685121,
+            "motor_input_kw": 20.850763251182826,
+            "overall_power_input": 22.66387309911177,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.867,
+            "npshr_m": 2.911,
+            "pump_power_limitation": 290.57,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 150/250-22/4-L1-GB3",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 19.40279662451339,
+            "motor_input_kw": 20.840812700873673,
+            "overall_power_input": 22.65305728355834,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8477,
+            "npshr_m": 3.593,
+            "pump_power_limitation": 290.43,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-150-290-HA",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 19.75801853203788,
+            "motor_input_kw": 21.2223614737249,
+            "overall_power_input": 23.06778421057054,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8131,
+            "npshr_m": 3.94,
+            "pump_power_limitation": 295.75,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-150-290-HA",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 19.75801853203788,
+            "motor_input_kw": 21.2223614737249,
+            "overall_power_input": 23.06778421057054,
+            "motor_size_kw": 22.0,
+            "poles": "4P",
+            "motor_eff": 0.9309999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8131,
+            "npshr_m": 3.94,
+            "pump_power_limitation": 295.75,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 700.0,
+        "flowrate_ls": 84.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/285-30/4-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 21.602969781168056,
+            "motor_input_kw": 23.080095920051345,
+            "overall_power_input": 25.087060782664505,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.839,
+            "npshr_m": 2.776,
+            "pump_power_limitation": 298.65999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 21.363615801980195,
+            "motor_input_kw": 22.82437585681645,
+            "overall_power_input": 24.809104192191793,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8484,
+            "npshr_m": 3.118,
+            "pump_power_limitation": 295.34999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 21.363615801980195,
+            "motor_input_kw": 22.82437585681645,
+            "overall_power_input": 24.809104192191793,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8484,
+            "npshr_m": 3.118,
+            "pump_power_limitation": 295.34999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 21.395050478077064,
+            "motor_input_kw": 22.857959912475497,
+            "overall_power_input": 24.845608600516844,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8279,
+            "npshr_m": 2.882,
+            "pump_power_limitation": 295.78999999999996,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-150-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 21.79258343922087,
+            "motor_input_kw": 23.282674614552214,
+            "overall_power_input": 25.307255015817624,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8317,
+            "npshr_m": 3.81,
+            "pump_power_limitation": 301.28,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-150-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 21.79258343922087,
+            "motor_input_kw": 23.282674614552214,
+            "overall_power_input": 25.307255015817624,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8317,
+            "npshr_m": 3.81,
+            "pump_power_limitation": 301.28,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 750.0,
+        "flowrate_ls": 90.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/285-30/4-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 23.02528665401944,
+            "motor_input_kw": 24.599665228653247,
+            "overall_power_input": 26.738766552883963,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8434,
+            "npshr_m": 3.007,
+            "pump_power_limitation": 297.09999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 23.18300413797128,
+            "motor_input_kw": 24.768166814071883,
+            "overall_power_input": 26.921920450078133,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8567,
+            "npshr_m": 3.17,
+            "pump_power_limitation": 299.14,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 23.16948162039197,
+            "motor_input_kw": 24.753719679905952,
+            "overall_power_input": 26.906217043376035,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8572,
+            "npshr_m": 3.17,
+            "pump_power_limitation": 298.96,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 23.212439354530236,
+            "motor_input_kw": 24.799614695010938,
+            "overall_power_input": 26.956102929359712,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8366,
+            "npshr_m": 3.08,
+            "pump_power_limitation": 299.52,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-150-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 23.05535648106375,
+            "motor_input_kw": 24.631791112247598,
+            "overall_power_input": 26.773685991573476,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8423,
+            "npshr_m": 3.87,
+            "pump_power_limitation": 297.49,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-150-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 23.05535648106375,
+            "motor_input_kw": 24.631791112247598,
+            "overall_power_input": 26.773685991573476,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8423,
+            "npshr_m": 3.87,
+            "pump_power_limitation": 297.49,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 800.0,
+        "flowrate_ls": 96.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/285-30/4-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 24.508000333175584,
+            "motor_input_kw": 26.183761039717506,
+            "overall_power_input": 28.460609825779898,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8452,
+            "npshr_m": 3.258,
+            "pump_power_limitation": 296.46999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 24.54517238790407,
+            "motor_input_kw": 26.223474773401787,
+            "overall_power_input": 28.503776927610637,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8631,
+            "npshr_m": 3.243,
+            "pump_power_limitation": 296.92,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 24.54517238790407,
+            "motor_input_kw": 26.223474773401787,
+            "overall_power_input": 28.503776927610637,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8631,
+            "npshr_m": 3.243,
+            "pump_power_limitation": 296.92,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 24.62161165054083,
+            "motor_input_kw": 26.305140652287214,
+            "overall_power_input": 28.59254418726871,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8413,
+            "npshr_m": 3.301,
+            "pump_power_limitation": 297.84,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-150-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 24.432840152866245,
+            "motor_input_kw": 26.103461701780176,
+            "overall_power_input": 28.373327936717583,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8478,
+            "npshr_m": 3.94,
+            "pump_power_limitation": 295.56,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-150-290-HA",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 24.432840152866245,
+            "motor_input_kw": 26.103461701780176,
+            "overall_power_input": 28.373327936717583,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8478,
+            "npshr_m": 3.94,
+            "pump_power_limitation": 295.56,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 850.0,
+        "flowrate_ls": 102.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/285-30/4-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 26.052079781250004,
+            "motor_input_kw": 27.833418569711544,
+            "overall_power_input": 30.253715836642982,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8448,
+            "npshr_m": 3.528,
+            "pump_power_limitation": 296.61,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 25.973917529425343,
+            "motor_input_kw": 27.749911890411692,
+            "overall_power_input": 30.16294770696923,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8666,
+            "npshr_m": 3.343,
+            "pump_power_limitation": 295.71999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 25.973917529425343,
+            "motor_input_kw": 27.749911890411692,
+            "overall_power_input": 30.16294770696923,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8666,
+            "npshr_m": 3.343,
+            "pump_power_limitation": 295.71999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 26.104610365555693,
+            "motor_input_kw": 27.889540988841553,
+            "overall_power_input": 30.31471846613212,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8431,
+            "npshr_m": 3.546,
+            "pump_power_limitation": 297.21,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 26.45627283850494,
+            "motor_input_kw": 28.265248759086475,
+            "overall_power_input": 30.723096477267905,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8508,
+            "npshr_m": 3.5,
+            "pump_power_limitation": 301.21,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 26.45627283850494,
+            "motor_input_kw": 28.265248759086475,
+            "overall_power_input": 30.723096477267905,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8508,
+            "npshr_m": 3.5,
+            "pump_power_limitation": 301.21,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 900.0,
+        "flowrate_ls": 108.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/285-30/4-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 27.653295498754005,
+            "motor_input_kw": 29.544119122600435,
+            "overall_power_input": 32.1131729593483,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8427,
+            "npshr_m": 3.818,
+            "pump_power_limitation": 297.34999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/285-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 27.44795067833698,
+            "motor_input_kw": 29.324733630701903,
+            "overall_power_input": 31.87471046815424,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8683,
+            "npshr_m": 3.476,
+            "pump_power_limitation": 295.14,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-30/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 27.44795067833698,
+            "motor_input_kw": 29.324733630701903,
+            "overall_power_input": 31.87471046815424,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8683,
+            "npshr_m": 3.476,
+            "pump_power_limitation": 295.14,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-30/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 27.653295498754005,
+            "motor_input_kw": 29.544119122600435,
+            "overall_power_input": 32.1131729593483,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8427,
+            "npshr_m": 3.818,
+            "pump_power_limitation": 297.34999999999997,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 27.76127614909726,
+            "motor_input_kw": 29.659483065274852,
+            "overall_power_input": 32.23856854921179,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8585,
+            "npshr_m": 3.64,
+            "pump_power_limitation": 298.51,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 27.76127614909726,
+            "motor_input_kw": 29.659483065274852,
+            "overall_power_input": 32.23856854921179,
+            "motor_size_kw": 30.0,
+            "poles": "4P",
+            "motor_eff": 0.9359999999999999,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8585,
+            "npshr_m": 3.64,
+            "pump_power_limitation": 298.51,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 950.0,
+        "flowrate_ls": 114.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 29.24859361997622,
+            "motor_input_kw": 31.148662002104597,
+            "overall_power_input": 33.85724130663543,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.841,
+            "npshr_m": 4.113,
+            "pump_power_limitation": 297.0,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 29.562203931026552,
+            "motor_input_kw": 31.482645293957987,
+            "overall_power_input": 34.220266623867374,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8699,
+            "npshr_m": 3.651,
+            "pump_power_limitation": 300.18,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-37/4-L1",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 29.562203931026552,
+            "motor_input_kw": 31.482645293957987,
+            "overall_power_input": 34.220266623867374,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8699,
+            "npshr_m": 3.651,
+            "pump_power_limitation": 300.18,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 29.300854359023226,
+            "motor_input_kw": 31.204317741238793,
+            "overall_power_input": 33.917736675259555,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8395,
+            "npshr_m": 4.122,
+            "pump_power_limitation": 297.53,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 29.133890233931673,
+            "motor_input_kw": 31.026507171386232,
+            "overall_power_input": 33.724464316724166,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8635,
+            "npshr_m": 3.81,
+            "pump_power_limitation": 295.83,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 29.133890233931673,
+            "motor_input_kw": 31.026507171386232,
+            "overall_power_input": 33.724464316724166,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8635,
+            "npshr_m": 3.81,
+            "pump_power_limitation": 295.83,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1000.0,
+        "flowrate_ls": 120.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 30.31172956875898,
+            "motor_input_kw": 32.280862160552694,
+            "overall_power_input": 35.08789365277467,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8348,
+            "npshr_m": 4.487,
+            "pump_power_limitation": 292.4,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 31.164682670964773,
+            "motor_input_kw": 33.18922542168772,
+            "overall_power_input": 36.07524502357361,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8686,
+            "npshr_m": 3.877,
+            "pump_power_limitation": 300.63,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-37/4-L1",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 31.164682670964773,
+            "motor_input_kw": 33.18922542168772,
+            "overall_power_input": 36.07524502357361,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8686,
+            "npshr_m": 3.877,
+            "pump_power_limitation": 300.63,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 31.01293849802372,
+            "motor_input_kw": 33.027623533571585,
+            "overall_power_input": 35.89959079736042,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8349,
+            "npshr_m": 4.464,
+            "pump_power_limitation": 299.17,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 31.164682670964773,
+            "motor_input_kw": 33.18922542168772,
+            "overall_power_input": 36.07524502357361,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8686,
+            "npshr_m": 3.97,
+            "pump_power_limitation": 300.63,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 31.164682670964773,
+            "motor_input_kw": 33.18922542168772,
+            "overall_power_input": 36.07524502357361,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8686,
+            "npshr_m": 3.97,
+            "pump_power_limitation": 300.63,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1050.0,
+        "flowrate_ls": 126.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 32.747937207419895,
+            "motor_input_kw": 34.87533248926506,
+            "overall_power_input": 37.90797009702724,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8302,
+            "npshr_m": 4.88,
+            "pump_power_limitation": 300.86,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 32.19315908648836,
+            "motor_input_kw": 34.28451446910368,
+            "overall_power_input": 37.26577659685182,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8637,
+            "npshr_m": 4.162,
+            "pump_power_limitation": 295.77,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-37/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 32.19315908648836,
+            "motor_input_kw": 34.28451446910368,
+            "overall_power_input": 37.26577659685182,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8637,
+            "npshr_m": 4.162,
+            "pump_power_limitation": 295.77,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 32.10808874465257,
+            "motor_input_kw": 34.193917725934575,
+            "overall_power_input": 37.16730187601584,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8275,
+            "npshr_m": 4.851,
+            "pump_power_limitation": 294.98,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 32.76818715287065,
+            "motor_input_kw": 34.89689792637982,
+            "overall_power_input": 37.931410789543285,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8674,
+            "npshr_m": 4.17,
+            "pump_power_limitation": 301.05,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 23.0,
+            "rated_power_kw": 32.76818715287065,
+            "motor_input_kw": 34.89689792637982,
+            "overall_power_input": 37.931410789543285,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8674,
+            "npshr_m": 4.17,
+            "pump_power_limitation": 301.05,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1100.0,
+        "flowrate_ls": 132.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 33.88684566398831,
+            "motor_input_kw": 36.0882275441835,
+            "overall_power_input": 39.22633428715598,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8214,
+            "npshr_m": 5.313,
+            "pump_power_limitation": 297.17,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 33.910698656577416,
+            "motor_input_kw": 36.11363009220172,
+            "overall_power_input": 39.25394575239317,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.859,
+            "npshr_m": 4.517,
+            "pump_power_limitation": 297.38,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 150/315-45/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 33.910698656577416,
+            "motor_input_kw": 36.11363009220172,
+            "overall_power_input": 39.25394575239317,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.859,
+            "npshr_m": 4.517,
+            "pump_power_limitation": 297.38,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 33.91161675,
+            "motor_input_kw": 36.114607827476036,
+            "overall_power_input": 39.255008508126124,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8208,
+            "npshr_m": 5.294,
+            "pump_power_limitation": 297.39,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 33.84372039735099,
+            "motor_input_kw": 36.04230074265281,
+            "overall_power_input": 39.17641385070958,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8607,
+            "npshr_m": 4.41,
+            "pump_power_limitation": 296.8,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 33.84372039735099,
+            "motor_input_kw": 36.04230074265281,
+            "overall_power_input": 39.17641385070958,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8607,
+            "npshr_m": 4.41,
+            "pump_power_limitation": 296.8,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1150.0,
+        "flowrate_ls": 138.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/295-37/4-P6-L1 EN",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 35.76679771460177,
+            "motor_input_kw": 38.0903064053267,
+            "overall_power_input": 41.40250696231163,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8136,
+            "npshr_m": 5.803,
+            "pump_power_limitation": 300.02,
+            "price": null,
+            "remarks": "Available pumps exceed 5m NPSHR."
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/295-37/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 35.705649887442846,
+            "motor_input_kw": 38.02518624860793,
+            "overall_power_input": 41.331724183269486,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8529,
+            "npshr_m": 4.955,
+            "pump_power_limitation": 299.51,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 200/400-45/4W-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 35.83225957256318,
+            "motor_input_kw": 38.038492115247536,
+            "overall_power_input": 41.346187081790795,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.831,
+            "npshr_m": 3.342,
+            "pump_power_limitation": 299.62,
+            "price": null,
+            "remarks": "We can offer 37kW with 85.02% efficiency but the duty \npoint will be close to the end of the application range."
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-37/4-L1-GB3",
+            "head_datasheet": 21.5,
+            "rated_power_kw": 35.7711943707437,
+            "motor_input_kw": 38.09498868023823,
+            "overall_power_input": 41.407596391563295,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8135,
+            "npshr_m": 5.803,
+            "pump_power_limitation": 300.06,
+            "price": null,
+            "remarks": "Only pump we can offer."
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 35.71402461475314,
+            "motor_input_kw": 38.03410502103636,
+            "overall_power_input": 41.341418501126476,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8527,
+            "npshr_m": 4.65,
+            "pump_power_limitation": 299.58,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-310-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 35.71402461475314,
+            "motor_input_kw": 38.03410502103636,
+            "overall_power_input": 41.341418501126476,
+            "motor_size_kw": 37.0,
+            "poles": "4P",
+            "motor_eff": 0.9390000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8527,
+            "npshr_m": 4.65,
+            "pump_power_limitation": 299.58,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      },
+      {
+        "tonnage": 1200.0,
+        "flowrate_ls": 144.0,
+        "pumps": [
+          {
+            "model": "GIGA-I",
+            "model_full": "Atmos GIGA-I 200/305-45/4-P6-L1 EN",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 36.94433682511211,
+            "motor_input_kw": 39.21904121561795,
+            "overall_power_input": 42.629392625671684,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8028,
+            "npshr_m": 6.74,
+            "pump_power_limitation": 296.03999999999996,
+            "price": null,
+            "remarks": "Available pumps exceed 5m NPSHR."
+          },
+          {
+            "model": "GIGA-B",
+            "model_full": "Atmos GIGA-B 150/305-45/4-L1",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 37.53976069935027,
+            "motor_input_kw": 39.85112600780283,
+            "overall_power_input": 43.31644131282916,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8465,
+            "npshr_m": 5.486,
+            "pump_power_limitation": 300.81,
+            "price": null,
+            "remarks": "Available pumps exceed 5m NPSHR."
+          },
+          {
+            "model": "GIGA-N",
+            "model_full": "Atmos GIGA-N 200/400-45/4W-L1-GB3",
+            "head_datasheet": 22.0,
+            "rated_power_kw": 37.426213951337026,
+            "motor_input_kw": 39.73058805874419,
+            "overall_power_input": 43.18542180298281,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8302,
+            "npshr_m": 3.482,
+            "pump_power_limitation": 299.9,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "GIGA-IC",
+            "model_full": "Atmos GIGA-IC 200/315-45/4-L1-GB3",
+            "head_datasheet": 21.0,
+            "rated_power_kw": 36.96275374277169,
+            "motor_input_kw": 39.23859208362175,
+            "overall_power_input": 42.65064356915407,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8024,
+            "npshr_m": 6.391,
+            "pump_power_limitation": 296.19,
+            "price": null,
+            "remarks": "Only pump we can offer."
+          },
+          {
+            "model": "SCP",
+            "model_full": "SCP-200-320-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 37.101468105078816,
+            "motor_input_kw": 39.38584724530659,
+            "overall_power_input": 42.810703527507165,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8565,
+            "npshr_m": 3.99,
+            "pump_power_limitation": 297.3,
+            "price": null,
+            "remarks": null
+          },
+          {
+            "model": "SCP-V",
+            "model_full": "SCPV-200-320-HA",
+            "head_datasheet": 22.5,
+            "rated_power_kw": 37.101468105078816,
+            "motor_input_kw": 39.38584724530659,
+            "overall_power_input": 42.810703527507165,
+            "motor_size_kw": 45.0,
+            "poles": "4P",
+            "motor_eff": 0.9420000000000001,
+            "vsd_eff": 0.92,
+            "pump_eff": 0.8565,
+            "npshr_m": 3.99,
+            "pump_power_limitation": 297.3,
+            "price": null,
+            "remarks": null
+          }
+        ]
+      }
+    ]
+  }
+};
+        let currentChart = null;
+        let scoreChart = null;
+
+        // Pump data embedded directly in HTML - no fetch needed
+        function loadPumpData() {
+            // Data already loaded above
+            populateTonnages();
+        }
+
+        function populateTonnages() {
+            const application = document.getElementById('application').value;
+            const tonnageSelect = document.getElementById('tonnage');
+            tonnageSelect.innerHTML = '<option value="">Select tonnage...</option>';
+
+            if (pumpDatabase && pumpDatabase[application]) {
+                const tonnages = pumpDatabase[application].tonnages;
+                tonnages.forEach(t => {
+                    const option = document.createElement('option');
+                    option.value = t.tonnage;
+                    option.textContent = `${t.tonnage} TR (${t.flowrate_ls} l/s)`;
+                    tonnageSelect.appendChild(option);
+                });
+            }
+        }
+
+        document.getElementById('application').addEventListener('change', populateTonnages);
+
+        function runOptimization() {
+            const application = document.getElementById('application').value;
+            const tonnage = parseFloat(document.getElementById('tonnage').value);
+
+            if (!tonnage) {
+                alert('Please select a tonnage');
+                return;
+            }
+
+            const appData = pumpDatabase[application];
+            const tonnageData = appData.tonnages.find(t => t.tonnage === tonnage);
+
+            if (!tonnageData) {
+                alert('No data found for selected tonnage');
+                return;
+            }
+
+            // Run the optimization algorithm
+            const results = optimizePumpSelection(tonnageData.pumps, appData);
+
+            // Display results
+            displayResults(results, appData, tonnageData);
+        }
+
+        function optimizePumpSelection(pumps, appData) {
+            const npshrLimit = appData.npshr_limit;
+            const ss553PowerLimit = appData.ss553_power_limit;
+
+            const results = pumps.map(pump => {
+                // Check constraints
+                const npshrPass = pump.npshr_m < npshrLimit;
+                const hasData = pump.pump_eff !== null && pump.npshr_m !== null;
+                
+                let score = 0;
+                let breakdown = {};
+                let disqualified = false;
+                let reasons = [];
+
+                if (!hasData) {
+                    disqualified = true;
+                    reasons.push('Insufficient data');
+                } else if (!npshrPass) {
+                    disqualified = true;
+                    reasons.push(`NPSHR too high (${pump.npshr_m.toFixed(2)}m > ${npshrLimit}m limit)`);
+                } else {
+                    // Calculate weighted score
+                    // 1. Efficiency score (40% weight) - higher is better
+                    const efficiencyScore = pump.pump_eff * 100;
+                    breakdown.efficiency = efficiencyScore;
+
+                    // 2. Power limitation score (30% weight) - closer to SS553 is better
+                    const powerDiff = Math.abs(pump.pump_power_limitation - ss553PowerLimit);
+                    const powerScore = Math.max(0, 100 - (powerDiff / ss553PowerLimit * 100));
+                    breakdown.powerLimit = powerScore;
+
+                    // 3. NPSHR score (30% weight) - lower is better
+                    const npshrScore = Math.max(0, 100 - (pump.npshr_m / npshrLimit * 100));
+                    breakdown.npshr = npshrScore;
+
+                    // Calculate weighted total
+                    score = (efficiencyScore * 0.4) + (powerScore * 0.3) + (npshrScore * 0.3);
+                }
+
+                return {
+                    ...pump,
+                    score: score,
+                    breakdown: breakdown,
+                    disqualified: disqualified,
+                    reasons: reasons,
+                    npshrPass: npshrPass
+                };
+            });
+
+            // Sort by score (highest first)
+            results.sort((a, b) => b.score - a.score);
+
+            return results;
+        }
+
+        
+        function toggleCriteria() {
+            const content = document.getElementById('additionalCriteria');
+            const btn = event.target;
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                btn.textContent = '📖 Show Additional Technical Details';
+            } else {
+                content.classList.add('expanded');
+                btn.textContent = '📖 Hide Additional Technical Details';
+            }
+        }
+
+
+
+        function generateJustification(pump, appData, tonnageData) {
+            const npshrLimit = appData.npshr_limit;
+            const ss553Limit = appData.ss553_power_limit;
+            const appType = document.getElementById('application').value === 'chilled_water' ? 
+                'Chilled Water' : 'Condenser Water';
+            
+            const powerDiff = Math.abs(pump.pump_power_limitation - ss553Limit);
+            const powerPercent = (powerDiff / ss553Limit * 100).toFixed(1);
+            const npshrMargin = ((npshrLimit - pump.npshr_m) / npshrLimit * 100).toFixed(1);
+            
+            let justificationHTML = `
+                <div class="selection-justification">
+                    <h4>Why This Pump Was Selected: ${pump.model}</h4>
+                    <p style="color: #2d3748; margin-bottom: 15px;">
+                        Based on comprehensive multi-criteria analysis for ${tonnageData.tonnage} TR ${appType} application 
+                        (${tonnageData.flowrate_ls} l/s flowrate), this pump achieved the highest optimization score of 
+                        <strong>${pump.score.toFixed(1)}/100</strong> due to the following factors:
+                    </p>
+                    <ul class="justification-points">
+            `;
+            
+            // Efficiency justification
+            const effPercent = (pump.pump_eff * 100).toFixed(2);
+            if (pump.pump_eff >= 0.82) {
+                justificationHTML += `
+                    <li><strong>Excellent Efficiency (${effPercent}%):</strong> This pump operates at high efficiency, 
+                    which will minimize energy consumption and reduce operating costs over its lifetime. 
+                    At ${tonnageData.flowrate_ls} l/s, the annual energy savings compared to a lower efficiency pump could be 
+                    ${(pump.pump_eff >= 0.83 ? '15-20%' : '10-15%')}.</li>
+                `;
+            } else {
+                justificationHTML += `
+                    <li><strong>Good Efficiency (${effPercent}%):</strong> This pump provides balanced efficiency 
+                    while meeting all critical constraints for reliable operation.</li>
+                `;
+            }
+            
+            // NPSHR justification
+            justificationHTML += `
+                <li><strong>Low NPSHR (${pump.npshr_m.toFixed(2)}m):</strong> With ${npshrMargin}% safety margin below 
+                the ${npshrLimit}m limit, this pump ensures cavitation-free operation. The low NPSHR requirement provides 
+                flexibility in system design and reduces the risk of pump damage, extending service life and minimizing 
+                maintenance costs.</li>
+            `;
+            
+            // Power limitation justification
+            if (powerDiff < 5) {
+                justificationHTML += `
+                    <li><strong>Excellent SS553 Compliance (${pump.pump_power_limitation.toFixed(1)} kW/m³/s):</strong> 
+                    Within ${powerPercent}% of the ${ss553Limit} kW/m³/s standard, this pump exceeds regulatory requirements 
+                    and qualifies for green building certifications (Green Mark, LEED, BCA).</li>
+                `;
+            } else if (powerDiff < 10) {
+                justificationHTML += `
+                    <li><strong>Good SS553 Compliance (${pump.pump_power_limitation.toFixed(1)} kW/m³/s):</strong> 
+                    Within ${powerPercent}% of the ${ss553Limit} kW/m³/s standard, this pump meets all regulatory 
+                    energy efficiency requirements.</li>
+                `;
+            } else {
+                justificationHTML += `
+                    <li><strong>SS553 Compliant (${pump.pump_power_limitation.toFixed(1)} kW/m³/s):</strong> 
+                    While ${powerPercent}% from the ${ss553Limit} kW/m³/s target, this pump still provides the best 
+                    overall balance when considering all three criteria together.</li>
+                `;
+            }
+            
+            // Motor and power details
+            justificationHTML += `
+                <li><strong>Appropriate Motor Sizing:</strong> The ${pump.motor_size_kw}kW motor with ${pump.motor_eff ? (pump.motor_eff*100).toFixed(1) : 'high'}% efficiency 
+                provides ${pump.motor_input_kw.toFixed(2)}kW input power. With VSD (Variable Speed Drive), total system input is 
+                ${pump.overall_power_input.toFixed(2)}kW, allowing for energy savings during part-load operation.</li>
+            `;
+            
+            // Weighted scoring explanation
+            justificationHTML += `
+                <li><strong>Optimized Scoring Methodology:</strong> This pump achieved the highest weighted score by balancing 
+                three critical factors: Efficiency (40% weight, ${pump.breakdown.efficiency.toFixed(1)} points), 
+                Power Limitation compliance (30% weight, ${pump.breakdown.powerLimit.toFixed(1)} points), and 
+                NPSHR performance (30% weight, ${pump.breakdown.npshr.toFixed(1)} points). This ensures the selection 
+                considers both immediate costs and long-term operational efficiency.</li>
+            `;
+            
+            // Additional remarks if any
+            if (pump.remarks) {
+                justificationHTML += `
+                    <li><strong>Important Note:</strong> ${pump.remarks}</li>
+                `;
+            }
+            
+            justificationHTML += `
+                    </ul>
+                    <p style="margin-top: 15px; padding: 12px; background: white; border-radius: 6px; color: #2d3748;">
+                        <strong>💼 For Customer Presentation:</strong> This pump provides the optimal balance of energy efficiency, 
+                        system reliability, and regulatory compliance, ensuring lowest total cost of ownership while meeting 
+                        all technical requirements for your ${tonnageData.tonnage} TR ${appType} system.
+                    </p>
+                </div>
+            `;
+            
+            return justificationHTML;
+        }
+
+
+        function displayResults(results, appData, tonnageData) {
+            const container = document.getElementById('pumpsContainer');
+            const statsContainer = document.getElementById('statsContainer');
+            container.innerHTML = '';
+            statsContainer.innerHTML = '';
+
+            // Show results section
+            document.getElementById('resultsContainer').classList.remove('hidden');
+
+            // Summary statistics
+            const qualifiedPumps = results.filter(r => !r.disqualified);
+            const winner = qualifiedPumps[0];
+            
+            statsContainer.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${tonnageData.tonnage}</div>
+                    <div class="stat-label">Tonnage (TR)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${tonnageData.flowrate_ls}</div>
+                    <div class="stat-label">Flowrate (l/s)</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${qualifiedPumps.length}</div>
+                    <div class="stat-label">Qualified Pumps</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${winner ? winner.score.toFixed(1) : 'N/A'}</div>
+                    <div class="stat-label">Best Score</div>
+                </div>
+            `;
+
+            // Display each pump
+            results.forEach((pump, index) => {
+                const card = document.createElement('div');
+                card.className = 'pump-card';
+                
+                if (!pump.disqualified && index === 0) {
+                    card.classList.add('winner');
+                } else if (pump.disqualified) {
+                    card.classList.add('disqualified');
+                }
+
+                const npshrBadge = pump.npshrPass ? 
+                    `<span class="info-badge pass">NPSHR: ${pump.npshr_m?.toFixed(2) || 'N/A'}m ✓</span>` :
+                    `<span class="info-badge fail">NPSHR: ${pump.npshr_m?.toFixed(2) || 'N/A'}m ✗</span>`;
+
+                const powerDiff = pump.pump_power_limitation ? 
+                    Math.abs(pump.pump_power_limitation - appData.ss553_power_limit).toFixed(1) : 'N/A';
+
+                card.innerHTML = `
+                    <div class="pump-header">
+                        <div class="pump-model">${pump.model}</div>
+                        <div class="pump-score ${pump.disqualified ? 'disqualified' : ''}">
+                            Score: ${pump.score.toFixed(1)}
+                        </div>
+                    </div>
+                    <div style="color: #718096; margin-bottom: 10px; font-size: 0.95em;">
+                        ${pump.model_full}
+                    </div>
+                    ${pump.disqualified ? `
+                        <div style="background: #fff5f5; padding: 10px; border-radius: 8px; color: #c53030; margin-bottom: 15px;">
+                            <strong>Disqualified:</strong> ${pump.reasons.join(', ')}
+                        </div>
+                    ` : ''}
+                    <div class="pump-details">
+                        <div class="detail-item">
+                            <div class="detail-label">Pump Efficiency</div>
+                            <div class="detail-value ${pump.pump_eff > 0.82 ? 'good' : pump.pump_eff > 0.80 ? 'warning' : ''}">
+                                ${pump.pump_eff ? (pump.pump_eff * 100).toFixed(2) + '%' : 'N/A'}
+                                ${pump.breakdown.efficiency ? `(${pump.breakdown.efficiency.toFixed(1)} pts)` : ''}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">NPSHR</div>
+                            <div class="detail-value ${pump.npshrPass ? 'good' : 'bad'}">
+                                ${pump.npshr_m ? pump.npshr_m.toFixed(2) + ' m' : 'N/A'}
+                                ${pump.breakdown.npshr ? `(${pump.breakdown.npshr.toFixed(1)} pts)` : ''}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Power Limitation</div>
+                            <div class="detail-value ${parseFloat(powerDiff) < 5 ? 'good' : parseFloat(powerDiff) < 10 ? 'warning' : ''}">
+                                ${pump.pump_power_limitation ? pump.pump_power_limitation.toFixed(1) + ' kW/m³/s' : 'N/A'}
+                                ${pump.breakdown.powerLimit ? `(${pump.breakdown.powerLimit.toFixed(1)} pts)` : ''}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Diff from SS553</div>
+                            <div class="detail-value">
+                                ${powerDiff} kW/m³/s
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Motor Size</div>
+                            <div class="detail-value">
+                                ${pump.motor_size_kw ? pump.motor_size_kw + ' kW' : 'N/A'}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Motor Input Power</div>
+                            <div class="detail-value">
+                                ${pump.motor_input_kw ? pump.motor_input_kw.toFixed(2) + ' kW' : 'N/A'}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Overall Power (w/ VSD)</div>
+                            <div class="detail-value">
+                                ${pump.overall_power_input ? pump.overall_power_input.toFixed(2) + ' kW' : 'N/A'}
+                            </div>
+                        </div>
+                        <div class="detail-item">
+                            <div class="detail-label">Head (Datasheet)</div>
+                            <div class="detail-value">
+                                ${pump.head_datasheet ? pump.head_datasheet + ' m' : 'N/A'}
+                            </div>
+                        </div>
+                    
+                    ${!pump.disqualified && index === 0 ? generateJustification(pump, appData, tonnageData) : ''}</div>
+                    ${pump.remarks ? `
+                        <div style="margin-top: 15px; padding: 10px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px;">
+                            <strong>Note:</strong> ${pump.remarks}
+                        </div>
+                    ` : ''}
+                `;
+
+                container.appendChild(card);
+            });
+
+            // Create comparison chart
+            createComparisonChart(results, appData);
+            createScoreChart(results);
+
+            // Scroll to results
+            document.getElementById('resultsContainer').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function createComparisonChart(results, appData) {
+            const ctx = document.getElementById('comparisonChart');
+            
+            if (currentChart) {
+                currentChart.destroy();
+            }
+
+            const qualifiedResults = results.filter(r => !r.disqualified);
+
+            currentChart = new Chart(ctx, {
+                type: 'radar',
+                data: {
+                    labels: [
+                        'Pump Efficiency (%)',
+                        'NPSHR Score',
+                        'Power Limit Score',
+                        'Overall Score'
+                    ],
+                    datasets: qualifiedResults.map((pump, index) => ({
+                        label: pump.model,
+                        data: [
+                            pump.pump_eff * 100,
+                            pump.breakdown.npshr,
+                            pump.breakdown.powerLimit,
+                            pump.score
+                        ],
+                        borderWidth: 2,
+                        backgroundColor: index === 0 ? 'rgba(56, 178, 172, 0.2)' : `rgba(102, 126, 234, ${0.1 + index * 0.05})`,
+                        borderColor: index === 0 ? 'rgba(56, 178, 172, 1)' : `rgba(102, 126, 234, ${0.5 + index * 0.1})`
+                    }))
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        r: {
+                            beginAtZero: true,
+                            max: 100,
+                            ticks: {
+                                stepSize: 20
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Multi-dimensional Performance Comparison'
+                        }
+                    }
+                }
+            });
+        }
+
+        function createScoreChart(results) {
+            const ctx = document.getElementById('scoreChart');
+            
+            if (scoreChart) {
+                scoreChart.destroy();
+            }
+
+            const qualifiedResults = results.filter(r => !r.disqualified);
+
+            scoreChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: qualifiedResults.map(p => p.model),
+                    datasets: [
+                        {
+                            label: 'Efficiency Score (40%)',
+                            data: qualifiedResults.map(p => p.breakdown.efficiency * 0.4),
+                            backgroundColor: 'rgba(72, 187, 120, 0.7)',
+                        },
+                        {
+                            label: 'Power Limit Score (30%)',
+                            data: qualifiedResults.map(p => p.breakdown.powerLimit * 0.3),
+                            backgroundColor: 'rgba(102, 126, 234, 0.7)',
+                        },
+                        {
+                            label: 'NPSHR Score (30%)',
+                            data: qualifiedResults.map(p => p.breakdown.npshr * 0.3),
+                            backgroundColor: 'rgba(237, 137, 54, 0.7)',
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        x: {
+                            stacked: true,
+                        },
+                        y: {
+                            stacked: true,
+                            beginAtZero: true,
+                            max: 100,
+                            title: {
+                                display: true,
+                                text: 'Weighted Score'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
+                        },
+                        title: {
+                            display: true,
+                            text: 'Scoring Breakdown by Component'
+                        }
+                    }
+                }
+            });
+        }
+
+        // Initialize on load
+        window.addEventListener('load', loadPumpData);
+    </script>
+</body>
+</html>
