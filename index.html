@@ -545,6 +545,137 @@
             max-height: 2000px;
         }
 
+    
+        /* Collapsible section styles */
+        .collapsible-section {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .collapsible-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            padding: 15px;
+            background: linear-gradient(135deg, #f7fafc 0%, #edf2f7 100%);
+            border-radius: 8px;
+            transition: all 0.3s;
+        }
+        
+        .collapsible-header:hover {
+            background: linear-gradient(135deg, #edf2f7 0%, #e2e8f0 100%);
+        }
+        
+        .collapsible-header h3 {
+            color: #2d3748;
+            font-size: 1.3em;
+            margin: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .expand-icon {
+            font-size: 1.5em;
+            transition: transform 0.3s;
+            color: #667eea;
+        }
+        
+        .expand-icon.expanded {
+            transform: rotate(180deg);
+        }
+        
+        .collapsible-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+        
+        .collapsible-content.expanded {
+            max-height: 3000px;
+            padding-top: 20px;
+        }
+        
+        /* Better card layout for results */
+        .results-container {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 20px;
+        }
+        
+        .pump-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .pump-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.15);
+        }
+        
+        /* Full-width justification section */
+        .selection-justification {
+            grid-column: 1;
+            background: linear-gradient(135deg, #e6fffa 0%, #b2f5ea 100%);
+            border-left: 4px solid #38b2ac;
+            padding: 25px;
+            border-radius: 8px;
+            margin-top: 20px;
+            width: 100%;
+        }
+        
+        .selection-justification h4 {
+            color: #234e52;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .selection-justification h4::before {
+            content: "💡";
+            font-size: 1.2em;
+        }
+        
+        /* Better grid layout for pump specs */
+        .pump-specs {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .spec-item {
+            background: #f7fafc;
+            padding: 12px;
+            border-radius: 6px;
+        }
+        
+        .spec-label {
+            font-size: 0.85em;
+            color: #718096;
+            margin-bottom: 4px;
+        }
+        
+        .spec-value {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2d3748;
+        }
+        
+        /* Move info panels after controls */
+        .info-panels-container {
+            margin-top: 30px;
+        }
+
     </style>
 </head>
 <body>
@@ -567,128 +698,7 @@
                     </select>
                 </div>
 
-        <div class="info-panel">
-            <h3>Why These Selection Criteria?</h3>
-            <div class="criteria-explanation">
-                <div class="criterion-card">
-                    <h4>1. Pump Efficiency <span class="weight">40% Weight</span></h4>
-                    <p><strong>Why it matters:</strong> Pump efficiency is the most critical factor because it directly impacts:</p>
-                    <ul>
-                        <li><strong>Energy Costs:</strong> A high-efficiency pump (>82%) can save 15-25% on electricity bills compared to lower efficiency models</li>
-                        <li><strong>Operating Costs:</strong> Over a pump's 15-20 year lifespan, energy costs are typically 5-10x the initial purchase price</li>
-                        <li><strong>Carbon Footprint:</strong> Higher efficiency means less energy consumption and reduced environmental impact</li>
-                        <li><strong>Heat Generation:</strong> Efficient pumps generate less waste heat, reducing cooling load on the HVAC system</li>
-                    </ul>
-                    <p><strong>Target:</strong> Look for pump efficiency >82% for optimal performance</p>
-                </div>
-
-                <div class="criterion-card">
-                    <h4>2. NPSHR (Net Positive Suction Head Required) <span class="weight">30% Weight</span></h4>
-                    <p><strong>Why it matters:</strong> NPSHR determines the minimum pressure needed at the pump inlet to prevent cavitation:</p>
-                    <ul>
-                        <li><strong>Cavitation Prevention:</strong> When NPSH Available < NPSHR, vapor bubbles form and collapse, causing damage to impeller</li>
-                        <li><strong>Pump Longevity:</strong> Cavitation leads to pitting, erosion, noise, vibration, and premature pump failure</li>
-                        <li><strong>Performance Degradation:</strong> Cavitation reduces pump capacity and head, affecting system performance</li>
-                        <li><strong>Maintenance Costs:</strong> Cavitation damage requires costly repairs and downtime</li>
-                    </ul>
-                    <p><strong>Limits:</strong> CHW systems: NPSHR < 6m | CDW systems: NPSHR < 5m (closer to cooling tower)</p>
-                </div>
-
-                <div class="criterion-card">
-                    <h4>3. Pump Power Limitation <span class="weight">30% Weight</span></h4>
-                    <p><strong>Why it matters:</strong> SS553 standard sets maximum power consumption limits for pump efficiency:</p>
-                    <ul>
-                        <li><strong>Regulatory Compliance:</strong> SS553 (Singapore Standard) ensures pumps meet minimum efficiency requirements</li>
-                        <li><strong>Energy Management:</strong> Keeps power consumption within acceptable limits (kW per m³/s of flow)</li>
-                        <li><strong>Benchmarking:</strong> Provides industry standard for comparing pump energy performance</li>
-                        <li><strong>Green Building:</strong> Required for certifications like Green Mark, LEED, and BCA standards</li>
-                    </ul>
-                    <p><strong>Targets:</strong> CHW: ≈349 kW/m³/s | CDW: ≈301 kW/m³/s (closer is better)</p>
-                </div>
-            </div>
-            <button class="toggle-btn" onclick="toggleCriteria()">📖 Show Additional Technical Details</button>
-            <div id="additionalCriteria" class="collapsible-content">
-                <div style="margin-top: 20px; padding: 15px; background: #fff5f5; border-radius: 8px;">
-                    <h4 style="color: #c53030; margin-bottom: 10px;">⚠️ Why Duty Point Position Matters</h4>
-                    <p style="color: #4a5568; line-height: 1.6;">The operating duty point should be in the middle range of the pump curve (40-80% of maximum flow), not at the extremes:</p>
-                    <ul style="margin-left: 20px; color: #4a5568;">
-                        <li><strong>Too close to shutoff (start):</strong> Risk of overheating, recirculation, and unstable operation</li>
-                        <li><strong>Too close to maximum (end):</strong> Risk of cavitation, excessive wear, and motor overload</li>
-                        <li><strong>Optimal range:</strong> Best efficiency, stable operation, and longest pump life</li>
-                    </ul>
-                </div>
-            </div>
-        </div>
-
-        <div class="tonnage-guide">
-            <h3>📊 Tonnage Selection Guide - Choose the Right Cooling Capacity</h3>
-            <p style="text-align: center; color: #4a5568; margin-bottom: 20px;">
-                Select tonnage based on your building type, size, and cooling requirements. 1 TR (Ton of Refrigeration) = 3.517 kW cooling capacity.
-            </p>
-            <table class="tonnage-table">
-                <thead>
-                    <tr>
-                        <th>Tonnage Range</th>
-                        <th>Typical Building Type</th>
-                        <th>Building Size</th>
-                        <th>Use Case Examples</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td class="tonnage-range">300-400 TR</td>
-                        <td>Small Commercial</td>
-                        <td>2,000-3,500 m²</td>
-                        <td>Small office buildings, retail shops, restaurants, clinics</td>
-                    </tr>
-                    <tr>
-                        <td class="tonnage-range">450-600 TR</td>
-                        <td>Medium Commercial</td>
-                        <td>4,000-6,000 m²</td>
-                        <td>Medium office buildings, supermarkets, small hotels, schools</td>
-                    </tr>
-                    <tr>
-                        <td class="tonnage-range">650-800 TR</td>
-                        <td>Large Commercial</td>
-                        <td>6,500-8,500 m²</td>
-                        <td>Large office buildings, shopping malls, mid-size hotels</td>
-                    </tr>
-                    <tr>
-                        <td class="tonnage-range">850-1000 TR</td>
-                        <td>Industrial / Large Facilities</td>
-                        <td>9,000-11,000 m²</td>
-                        <td>Factories, warehouses, large hotels, convention centers</td>
-                    </tr>
-                    <tr>
-                        <td class="tonnage-range">1050-1200 TR</td>
-                        <td>Very Large Facilities</td>
-                        <td>11,500-13,000+ m²</td>
-                        <td>Hospitals, airports, large industrial plants, data centers</td>
-                    </tr>
-                </tbody>
-            </table>
-            <div style="margin-top: 20px; padding: 15px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px;">
-                <p style="color: #78350f; font-weight: 600; margin-bottom: 8px;">💡 Quick Sizing Rule of Thumb:</p>
-                <p style="color: #4a5568; line-height: 1.6;">
-                    For office buildings: ~100-120 m² per TR<br>
-                    For retail/shopping: ~80-100 m² per TR<br>
-                    For hotels: ~60-80 m² per TR<br>
-                    For hospitals: ~50-70 m² per TR<br>
-                    For data centers: ~20-40 m² per TR (high cooling density)
-                </p>
-                <p style="color: #4a5568; margin-top: 10px; font-style: italic;">
-                    Note: Actual tonnage requirements depend on climate, insulation, occupancy, heat-generating equipment, and other factors. Always consult with HVAC engineers for accurate sizing.
-                </p>
-            </div>
-        </div>
-
-
-                <div class="control-group">
-                    <label for="tonnage">Rated Tonnage (TR):</label>
-                    <select id="tonnage">
-                        <option value="">Select tonnage...</option>
-                    </select>
-                </div>
+        
 
                 <button class="btn" onclick="runOptimization()">🎯 Run Optimization</button>
             </div>
@@ -4954,6 +4964,21 @@
         }
 
         
+        
+        // Collapsible section toggle
+        function toggleSection(sectionId) {
+            const content = document.getElementById(sectionId);
+            const icon = event.currentTarget.querySelector('.expand-icon');
+            
+            if (content.classList.contains('expanded')) {
+                content.classList.remove('expanded');
+                icon.classList.remove('expanded');
+            } else {
+                content.classList.add('expanded');
+                icon.classList.add('expanded');
+            }
+        }
+
         function toggleCriteria() {
             const content = document.getElementById('additionalCriteria');
             const btn = event.target;
@@ -5070,6 +5095,18 @@
             return justificationHTML;
         }
 
+
+        
+        function displayJustificationSeparately(pump, appData, tonnageData, index) {
+            if (pump.disqualified || index !== 0) return '';
+            
+            const justificationHTML = generateJustification(pump, appData, tonnageData);
+            return `
+                <div class="selection-justification" style="margin: 20px 0; grid-column: 1;">
+                    ${justificationHTML.replace('<div class="selection-justification">', '').replace('</div>', '')}
+                </div>
+            `;
+        }
 
         function displayResults(results, appData, tonnageData) {
             const container = document.getElementById('pumpsContainer');
@@ -5189,7 +5226,7 @@
                             </div>
                         </div>
                     
-                    ${!pump.disqualified && index === 0 ? generateJustification(pump, appData, tonnageData) : ''}</div>
+                    </div>
                     ${pump.remarks ? `
                         <div style="margin-top: 15px; padding: 10px; background: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 4px;">
                             <strong>Note:</strong> ${pump.remarks}
