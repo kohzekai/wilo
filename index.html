@@ -5227,54 +5227,77 @@
             const jsonData = XLSX.utils.sheet_to_json(sheet);
             console.log(`Parsing ${appType} sheet:`, jsonData.length, 'rows');
             
+            // Debug: log first row keys to see exact column names
+            if (jsonData.length > 0) {
+                console.log(`${appType} - Available columns:`, Object.keys(jsonData[0]));
+            }
+            
             const tonnageGroups = {};
             
             jsonData.forEach((row, index) => {
-                // Try different column name variations
-                const tonnage = parseFloat(
-                    row['Tonnage'] || 
-                    row['Rated Tonnage (TR)'] || 
-                    row['TR'] || 
-                    row['Cooling Capacity (TR)'] ||
-                    row['tonnage']
-                );
+                // Find tonnage column - handles various names and newlines
+                let tonnage = null;
+                for (let key of Object.keys(row)) {
+                    const keyLower = key.toLowerCase().replace(/\s+/g, '');
+                    if (keyLower.includes('tonnage') || keyLower === 'tr') {
+                        tonnage = parseFloat(row[key]);
+                        break;
+                    }
+                }
                 
                 if (!tonnage || isNaN(tonnage)) {
-                    console.warn(`Row ${index + 1}: No valid tonnage found`, row);
+                    console.warn(`Row ${index + 1}: No valid tonnage found`);
                     return;
+                }
+
+                // Find flowrate column
+                let flowrate = 0;
+                for (let key of Object.keys(row)) {
+                    const keyLower = key.toLowerCase().replace(/\s+/g, '');
+                    if (keyLower.includes('flowrate') || keyLower.includes('flow')) {
+                        flowrate = parseFloat(row[key]) || 0;
+                        break;
+                    }
                 }
 
                 if (!tonnageGroups[tonnage]) {
                     tonnageGroups[tonnage] = {
                         tonnage: tonnage,
-                        flowrate_ls: parseFloat(
-                            row['Flowrate (l/s)'] || 
-                            row['Flowrate'] || 
-                            row['Flow Rate'] ||
-                            row['flowrate_ls'] ||
-                            0
-                        ),
+                        flowrate_ls: flowrate,
                         pumps: []
                     };
                 }
 
-                // Create pump object
+                // Helper function to find column value
+                const findValue = (keywords, defaultValue = null) => {
+                    for (let key of Object.keys(row)) {
+                        const keyLower = key.toLowerCase().replace(/\s+/g, '');
+                        for (let keyword of keywords) {
+                            if (keyLower.includes(keyword.toLowerCase().replace(/\s+/g, ''))) {
+                                return row[key];
+                            }
+                        }
+                    }
+                    return defaultValue;
+                };
+
+                // Create pump object using flexible column matching
                 const pump = {
-                    model: String(row['Model'] || row['Pump Model'] || row['model'] || ''),
-                    model_full: String(row['Full Model'] || row['Model Full'] || row['model_full'] || row['Model'] || ''),
-                    head_datasheet: parseFloat(row['Head (m)'] || row['Head'] || row['head_datasheet'] || 0),
-                    rated_power_kw: parseFloat(row['Rated Power (kW)'] || row['Power'] || row['rated_power_kw'] || 0),
-                    motor_input_kw: parseFloat(row['Motor Input (kW)'] || row['motor_input_kw'] || 0),
-                    overall_power_input: parseFloat(row['Overall Power Input'] || row['overall_power_input'] || 0),
-                    motor_size_kw: parseFloat(row['Motor Size (kW)'] || row['Motor Size'] || row['motor_size_kw'] || 0),
-                    motor_poles: parseInt(row['Motor Poles'] || row['Poles'] || row['motor_poles'] || 4),
-                    motor_eff: parseFloat(row['Motor Efficiency'] || row['Motor Eff'] || row['motor_eff'] || 0.94),
-                    vsd_eff: parseFloat(row['VSD Efficiency'] || row['VSD Eff'] || row['vsd_eff'] || 0.92),
-                    pump_eff: parseFloat(row['Pump Efficiency'] || row['Efficiency'] || row['pump_eff'] || 0),
-                    npshr_m: parseFloat(row['NPSHR (m)'] || row['NPSHR'] || row['npshr_m'] || 0),
-                    pump_power_limitation: parseFloat(row['Power Limitation'] || row['Pump Power Limitation'] || row['pump_power_limitation'] || 0),
-                    price: parseFloat(row['Price'] || 0) || null,
-                    remarks: row['Remarks'] || row['Notes'] || row['remarks'] || null
+                    model: String(findValue(['Pump Model', 'Model']) || ''),
+                    model_full: String(findValue(['Full Model', 'Model Full', 'Pump Model']) || findValue(['Model']) || ''),
+                    head_datasheet: parseFloat(findValue(['Head']) || 0),
+                    rated_power_kw: parseFloat(findValue(['Rated Power']) || 0),
+                    motor_input_kw: parseFloat(findValue(['Motor Input', 'Motor\nInput']) || 0),
+                    overall_power_input: parseFloat(findValue(['Overall Power', 'Overall']) || 0),
+                    motor_size_kw: parseFloat(findValue(['Motor Size']) || 0),
+                    motor_poles: parseInt(findValue(['Poles', 'Motor Poles']) || 4),
+                    motor_eff: parseFloat(findValue(['Motor Eff', 'Motor Efficiency']) || 0.94),
+                    vsd_eff: parseFloat(findValue(['VSD Eff', 'VSD']) || 0.92),
+                    pump_eff: parseFloat(findValue(['Pump Eff', 'Pump Efficiency', 'Efficiency']) || 0),
+                    npshr_m: parseFloat(findValue(['NPSHR']) || 0),
+                    pump_power_limitation: parseFloat(findValue(['SS553', 'Power Limitation']) || 0),
+                    price: parseFloat(findValue(['Price']) || 0) || null,
+                    remarks: findValue(['Remarks', 'Notes']) || null
                 };
 
                 tonnageGroups[tonnage].pumps.push(pump);
