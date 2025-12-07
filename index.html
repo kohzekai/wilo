@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wilo HVAC Pump Selection Optimizer - CDIO Project</title>
+        <!-- SheetJS for Excel reading -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
     <style>
         * {
@@ -616,6 +618,134 @@
             width: 100%;
         }
 
+
+        /* File upload section styles */
+        .file-upload-section {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .file-upload-section h3 {
+            color: #2d3748;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        
+        .file-input-wrapper {
+            position: relative;
+            display: inline-block;
+            cursor: pointer;
+            width: 100%;
+        }
+        
+        .file-input-wrapper input[type=file] {
+            position: absolute;
+            left: -9999px;
+        }
+        
+        .file-input-label {
+            display: block;
+            padding: 15px;
+            background: linear-gradient(135deg, #48bb78 0%, #38a169 100%);
+            color: white;
+            text-align: center;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+        
+        .file-input-label:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(72, 187, 120, 0.4);
+        }
+        
+        .file-status {
+            margin-top: 15px;
+            padding: 12px;
+            border-radius: 6px;
+            display: none;
+            font-weight: 500;
+        }
+        
+        .file-status.success {
+            background: #d4edda;
+            color: #155724;
+            border-left: 4px solid #28a745;
+            display: block;
+        }
+        
+        .file-status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border-left: 4px solid #dc3545;
+            display: block;
+        }
+        
+        .file-status.loading {
+            background: #fff3cd;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+            display: block;
+        }
+        
+        .info-box {
+            background: #e7f3ff;
+            padding: 15px;
+            border-left: 4px solid #2196F3;
+            border-radius: 4px;
+            margin-top: 15px;
+            line-height: 1.6;
+        }
+        
+        .info-box strong {
+            color: #1976D2;
+        }
+        
+        .info-box ol {
+            margin-left: 20px;
+            margin-top: 10px;
+        }
+        
+        .data-source-toggle {
+            background: #fff9e6;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border-left: 4px solid #f59e0b;
+        }
+        
+        .toggle-buttons {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .toggle-btn-source {
+            flex: 1;
+            padding: 10px;
+            border: 2px solid #e2e8f0;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .toggle-btn-source.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-color: #667eea;
+        }
+        
+        .toggle-btn-source:hover:not(.active) {
+            border-color: #667eea;
+            background: #f7fafc;
+        }
+
     </style>
 </head>
 <body>
@@ -627,7 +757,32 @@
         </div>
 
         <div class="grid-2">
-            <div class="controls-panel">
+            
+        <!-- Data Status Section -->
+        <div class="file-upload-section">
+            <div class="data-status-section">
+                <h3>📊 Data Source Status</h3>
+                <div id="dataLoadStatus" class="file-status loading">
+                    ⏳ Loading pump data from Excel file...
+                </div>
+                <div class="info-box" style="margin-top: 15px;">
+                    <strong>💡 How it works:</strong>
+                    <ul style="margin-left: 20px; margin-top: 10px;">
+                        <li>App automatically loads <code>Pump_Comparison-V2.xlsx</code> from server</li>
+                        <li>No manual upload needed - data loads on page load</li>
+                        <li>To update data: Upload new Excel file to Vercel backend</li>
+                        <li>Users always get latest data automatically</li>
+                        <li>Processing happens in browser (secure and fast)</li>
+                    </ul>
+                    <p style="margin-top: 10px; color: #4a5568;">
+                        <strong>📝 For Admin:</strong> To update pump data, upload new <code>Pump_Comparison-V2.xlsx</code> 
+                        to the project root in Vercel. Changes take effect immediately.
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls-panel">
                 <h2 style="color: #2d3748; margin-bottom: 20px; font-size: 1.5em;">Selection Parameters</h2>
                 
                 <div class="control-group">
@@ -4933,9 +5088,228 @@
         let scoreChart = null;
 
         // Pump data embedded directly in HTML - no fetch needed
+        
+        // Handle Excel file upload
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            const statusDiv = document.getElementById('fileStatus');
+            
+            if (!file) return;
+
+            statusDiv.textContent = '⏳ Reading Excel file...';
+            statusDiv.className = 'file-status loading';
+
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    processExcelData(workbook);
+                    
+                    const totalPumps = getTotalPumpsFromExcel();
+                    statusDiv.textContent = `✅ Successfully loaded ${file.name}! Found ${totalPumps} pump configurations across ${excelPumpDatabase.chilled_water.tonnages.length + excelPumpDatabase.condenser_water.tonnages.length} tonnage ratings.`;
+                    statusDiv.className = 'file-status success';
+                    
+                    populateTonnages();
+                    
+                } catch (error) {
+                    console.error('Error reading Excel file:', error);
+                    statusDiv.textContent = `❌ Error reading file: ${error.message}. Please check the file format.`;
+                    statusDiv.className = 'file-status error';
+                }
+            };
+
+            reader.onerror = function() {
+                statusDiv.textContent = '❌ Error reading file. Please try again.';
+                statusDiv.className = 'file-status error';
+            };
+
+            reader.readAsArrayBuffer(file);
+        }
+
+        // Auto-load Excel file from server
+        function autoLoadExcelFromServer() {
+            const statusDiv = document.getElementById('dataLoadStatus');
+            const excelFilePath = 'Pump_Comparison-V2.xlsx'; // File in same directory as HTML
+            
+            statusDiv.textContent = '⏳ Loading pump data from Excel file...';
+            statusDiv.className = 'file-status loading';
+            
+            fetch(excelFilePath)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`Failed to load ${excelFilePath}. Make sure file is uploaded to Vercel.`);
+                    }
+                    return response.arrayBuffer();
+                })
+                .then(data => {
+                    try {
+                        const workbook = XLSX.read(data, {type: 'array'});
+                        processExcelData(workbook);
+                        
+                        const totalPumps = getTotalPumpsFromExcel();
+                        const totalTonnages = excelPumpDatabase.chilled_water.tonnages.length + 
+                                            excelPumpDatabase.condenser_water.tonnages.length;
+                        
+                        statusDiv.textContent = `✅ Successfully loaded pump data! Found ${totalPumps} pump configurations across ${totalTonnages} tonnage ratings. Data is ready to use.`;
+                        statusDiv.className = 'file-status success';
+                        
+                        // Populate tonnages after successful load
+                        populateTonnages();
+                        
+                        console.log('✅ Excel data loaded successfully from server');
+                        
+                    } catch (error) {
+                        console.error('Error processing Excel file:', error);
+                        statusDiv.textContent = `❌ Error processing Excel data: ${error.message}`;
+                        statusDiv.className = 'file-status error';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading Excel file:', error);
+                    statusDiv.textContent = `❌ Error loading Excel file: ${error.message}. Please ensure Pump_Comparison-V2.xlsx is uploaded to the server.`;
+                    statusDiv.className = 'file-status error';
+                    
+                    // Fallback to embedded data if Excel fails to load
+                    console.log('⚠️ Falling back to embedded data');
+                    populateTonnages(); // Will use embedded pumpDatabase
+                });
+        }
+
+        
+        // Process Excel workbook into pump database
+        function processExcelData(workbook) {
+            console.log('Processing workbook with sheets:', workbook.SheetNames);
+            
+            // Try to find CHW and CDW sheets (case-insensitive)
+            let chwSheet = null;
+            let cdwSheet = null;
+            
+            workbook.SheetNames.forEach(name => {
+                const nameLower = name.toLowerCase();
+                if (nameLower.includes('chw') || nameLower.includes('chilled')) {
+                    chwSheet = workbook.Sheets[name];
+                } else if (nameLower.includes('cdw') || nameLower.includes('condenser')) {
+                    cdwSheet = workbook.Sheets[name];
+                }
+            });
+            
+            // Fallback to first two sheets if not found
+            if (!chwSheet && workbook.SheetNames.length > 0) {
+                chwSheet = workbook.Sheets[workbook.SheetNames[0]];
+            }
+            if (!cdwSheet && workbook.SheetNames.length > 1) {
+                cdwSheet = workbook.Sheets[workbook.SheetNames[1]];
+            }
+
+            excelPumpDatabase = {
+                chilled_water: {
+                    npshr_limit: 6.0,
+                    ss553_power_limit: 349.0,
+                    tonnages: parseSheetData(chwSheet, 'chilled_water')
+                },
+                condenser_water: {
+                    npshr_limit: 5.0,
+                    ss553_power_limit: 301.0,
+                    tonnages: parseSheetData(cdwSheet, 'condenser_water')
+                }
+            };
+
+            console.log('Excel pump database created:', excelPumpDatabase);
+        }
+
+        // Parse Excel sheet into tonnage groups
+        function parseSheetData(sheet, appType) {
+            if (!sheet) return [];
+
+            const jsonData = XLSX.utils.sheet_to_json(sheet);
+            console.log(`Parsing ${appType} sheet:`, jsonData.length, 'rows');
+            
+            const tonnageGroups = {};
+            
+            jsonData.forEach((row, index) => {
+                // Try different column name variations
+                const tonnage = parseFloat(
+                    row['Tonnage'] || 
+                    row['Rated Tonnage (TR)'] || 
+                    row['TR'] || 
+                    row['Cooling Capacity (TR)'] ||
+                    row['tonnage']
+                );
+                
+                if (!tonnage || isNaN(tonnage)) {
+                    console.warn(`Row ${index + 1}: No valid tonnage found`, row);
+                    return;
+                }
+
+                if (!tonnageGroups[tonnage]) {
+                    tonnageGroups[tonnage] = {
+                        tonnage: tonnage,
+                        flowrate_ls: parseFloat(
+                            row['Flowrate (l/s)'] || 
+                            row['Flowrate'] || 
+                            row['Flow Rate'] ||
+                            row['flowrate_ls'] ||
+                            0
+                        ),
+                        pumps: []
+                    };
+                }
+
+                // Create pump object
+                const pump = {
+                    model: String(row['Model'] || row['Pump Model'] || row['model'] || ''),
+                    model_full: String(row['Full Model'] || row['Model Full'] || row['model_full'] || row['Model'] || ''),
+                    head_datasheet: parseFloat(row['Head (m)'] || row['Head'] || row['head_datasheet'] || 0),
+                    rated_power_kw: parseFloat(row['Rated Power (kW)'] || row['Power'] || row['rated_power_kw'] || 0),
+                    motor_input_kw: parseFloat(row['Motor Input (kW)'] || row['motor_input_kw'] || 0),
+                    overall_power_input: parseFloat(row['Overall Power Input'] || row['overall_power_input'] || 0),
+                    motor_size_kw: parseFloat(row['Motor Size (kW)'] || row['Motor Size'] || row['motor_size_kw'] || 0),
+                    motor_poles: parseInt(row['Motor Poles'] || row['Poles'] || row['motor_poles'] || 4),
+                    motor_eff: parseFloat(row['Motor Efficiency'] || row['Motor Eff'] || row['motor_eff'] || 0.94),
+                    vsd_eff: parseFloat(row['VSD Efficiency'] || row['VSD Eff'] || row['vsd_eff'] || 0.92),
+                    pump_eff: parseFloat(row['Pump Efficiency'] || row['Efficiency'] || row['pump_eff'] || 0),
+                    npshr_m: parseFloat(row['NPSHR (m)'] || row['NPSHR'] || row['npshr_m'] || 0),
+                    pump_power_limitation: parseFloat(row['Power Limitation'] || row['Pump Power Limitation'] || row['pump_power_limitation'] || 0),
+                    price: parseFloat(row['Price'] || 0) || null,
+                    remarks: row['Remarks'] || row['Notes'] || row['remarks'] || null
+                };
+
+                tonnageGroups[tonnage].pumps.push(pump);
+            });
+
+            const tonnagesArray = Object.values(tonnageGroups).sort((a, b) => a.tonnage - b.tonnage);
+            console.log(`Created ${tonnagesArray.length} tonnage groups for ${appType}`);
+            
+            return tonnagesArray;
+        }
+
+        // Get total pumps from Excel
+        function getTotalPumpsFromExcel() {
+            if (!excelPumpDatabase) return 0;
+            let total = 0;
+            ['chilled_water', 'condenser_water'].forEach(app => {
+                if (excelPumpDatabase[app] && excelPumpDatabase[app].tonnages) {
+                    excelPumpDatabase[app].tonnages.forEach(t => {
+                        total += t.pumps.length;
+                    });
+                }
+            });
+            return total;
+        }
+
+        // Get active pump database based on data source
+        function getActivePumpDatabase() {
+            // Use Excel data if available, otherwise fall back to embedded data
+            return excelPumpDatabase || pumpDatabase;
+        }
+
+        
         function loadPumpData() {
-            // Data already loaded above
-            populateTonnages();
+            // Auto-load Excel data from server on page load
+            autoLoadExcelFromServer();
         }
 
         function populateTonnages() {
@@ -4943,8 +5317,9 @@
             const tonnageSelect = document.getElementById('tonnage');
             tonnageSelect.innerHTML = '<option value="">Select tonnage...</option>';
 
-            if (pumpDatabase && pumpDatabase[application]) {
-                const tonnages = pumpDatabase[application].tonnages;
+            const activeDB = getActivePumpDatabase();
+            if (activeDB && activeDB[application]) {
+                const tonnages = activeDB[application].tonnages;
                 tonnages.forEach(t => {
                     const option = document.createElement('option');
                     option.value = t.tonnage;
@@ -4965,7 +5340,7 @@
                 return;
             }
 
-            const appData = pumpDatabase[application];
+            const appData = getActivePumpDatabase()[application];
             const tonnageData = appData.tonnages.find(t => t.tonnage === tonnage);
 
             if (!tonnageData) {
